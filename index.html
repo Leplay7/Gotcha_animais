@@ -18,7 +18,6 @@
       min-height: 100vh;
     }
     
-    /* Canto Superior: Nickname e Estatísticas */
     .top-bar {
       width: 100%;
       max-width: 400px;
@@ -53,7 +52,6 @@
       color: #ddd;
     }
 
-    /* Modal / Chave API */
     #api-modal {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -90,7 +88,6 @@
       cursor: pointer;
     }
 
-    /* Área Principal */
     .camera-area {
       width: 100%;
       max-width: 400px;
@@ -124,7 +121,6 @@
       display: none;
     }
 
-    /* Cards da Coleção */
     .collection {
       width: 100%;
       max-width: 400px;
@@ -151,7 +147,6 @@
 </head>
 <body>
 
-  <!-- Tela de Inicialização da API Key -->
   <div id="api-modal">
     <div class="modal-content">
       <h3>Bem-vindo ao Gotcha!</h3>
@@ -161,7 +156,6 @@
     </div>
   </div>
 
-  <!-- Barra Superior com Nickname e Status -->
   <div class="top-bar">
     <div class="nick-container">
       🎮 <input type="text" id="nickname" class="nick-input" placeholder="Seu Nick" onchange="saveNick(this.value)">
@@ -171,18 +165,17 @@
     </div>
   </div>
 
-  <!-- Área de Captura -->
   <div class="camera-area">
     <h2>Gotcha!</h2>
-    <p>Tire uma foto do seu pet ou animal para capturar!</p>
+    <p>Tire ou escolha uma foto do seu pet para capturar!</p>
     
-    <label for="camera-input" class="btn-capture">📷 Tirar Foto</label>
-    <input type="file" id="camera-input" accept="image/*" capture="environment" onchange="handleImage(this)">
+    <!-- Removido 'capture="environment"' para evitar o travamento de memória da câmera nativa -->
+    <label for="camera-input" class="btn-capture">📸 Enviar ou Tirar Foto</label>
+    <input type="file" id="camera-input" accept="image/*" onchange="handleImage(this)">
 
     <div id="loading">Analisando imagem... aguarde!</div>
   </div>
 
-  <!-- Coleção -->
   <div class="collection">
     <h3>Sua Coleção (<span id="captured-count">0</span>)</h3>
     <div id="cards-list"></div>
@@ -191,7 +184,7 @@
   <script>
     let apiKey = localStorage.getItem('gemini_api_key') || '';
     let playerData = JSON.parse(localStorage.getItem('gotcha_player')) || {
-      nick: 'Treinador',
+      nick: 'Leplay07',
       xp: 0,
       level: 1,
       captured: []
@@ -242,7 +235,6 @@
       });
     }
 
-    // --- REDIMENSIONAMENTO DE IMAGEM (RESOLVE O PROBLEMA DE MEMÓRIA) ---
     function handleImage(input) {
       if (!input.files || !input.files[0]) return;
       
@@ -253,9 +245,8 @@
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          // Cria um canvas para reduzir a resolução da foto
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800; // Reduz para no máximo 800px de largura
+          const MAX_WIDTH = 600; // Reduzido para 600px para garantir total leveza no Android
           const scaleSize = MAX_WIDTH / img.width;
           
           canvas.width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
@@ -264,10 +255,8 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          // Converte para JPEG com 70% de qualidade (extremamente leve)
-          const resizedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          const resizedBase64 = canvas.toDataURL('image/jpeg', 0.6);
           
-          // Envia para o Gemini
           analyzePet(resizedBase64);
         };
         img.src = e.target.result;
@@ -322,7 +311,7 @@
 
       } catch (err) {
         document.getElementById('loading').style.display = 'none';
-        alert("Erro ao analisar imagem. Verifique sua API Key ou conexão.");
+        alert("Erro ao analisar imagem. Verifique se inseriu a API Key correta!");
         console.error(err);
       }
     }
