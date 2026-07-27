@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="manifest" href="manifest.json">
+    <title>Gotcha: Identificador</title>
+    <style>
+        :root { --main-color: #FFD700; --bg: #f4f4f9; --text: #333; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: var(--text); padding-bottom: 80px;}
+        header { background: var(--main-color); padding: 20px; text-align: center; font-size: 24px; font-weight: bold; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+        .stats { display: flex; justify-content: space-around; margin: 15px; padding: 10px; background: white; border-radius: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-weight: bold;}
+        
+        .pokedex { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 15px; }
+        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
+        .card img { width: 100%; height: 120px; object-fit: cover; }
+        .card-info { padding: 8px; }
+        .rarity-comum { color: green; } .rarity-raro { color: blue; } .rarity-epico { color: purple; } .rarity-lendario { color: orange; font-weight: bold; }
+        
+        .fab { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--main-color); width: 65px; height: 65px; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 30px; cursor: pointer; border: 3px solid white; }
+        input[type="file"] { display: none; }
+        
+        /* Modal de Loading/Resultado */
+        #loading { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index: 10; text-align: center; padding-top: 50%; font-size: 20px; font-weight: bold; }
+        
+        /* Modal de Configuração (API KEY) */
+        #api-modal { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index: 100; display: flex; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 15px; width: 80%; max-width: 400px; text-align: center; }
+        input[type="text"] { width: 90%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid #ccc; }
+        button { background: var(--main-color); border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
+    </style>
+</head>
+<body>
+
+    <header>🐦 Gotcha!</header>
+
+    <div class="stats">
+        <div>Nível: <span id="level-txt">1</span></div>
+        <div>Capturados: <span id="total-txt">0</span></div>
+        <div>XP: <span id="xp-txt">0</span></div>
+    </div>
+
+    <!-- Onde os animais capturados vão aparecer -->
+    <div class="pokedex" id="pokedex"></div>
+
+    <!-- Botão Câmera -->
+    <label class="fab">
+        📷
+        <input type="file" accept="image/*" capture="environment" id="cameraInput">
+    </label>
+
+    <div id="loading">Analisando animal... 🔍</div>
+
+    <!-- Modal para pedir a Chave do Gemini -->
+    <div id="api-modal">
+        <div class="modal-content">
+            <h3>Bem-vindo ao Gotcha!</h3>
+            <p>Para a IA identificar os animais, cole sua API Key do Google Gemini abaixo (é grátis no Google AI Studio):</p>
+            <input type="text" id="apiKeyInput" placeholder="Cole sua API Key aqui...">
+            <button onclick="salvarApiKey()">Começar a Jogar</button>
+        </div>
+    </div>
+
+    <script>
+        // Registra o Service Worker para funcionar offline/PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+
+        // Sistema de Save (LocalStorage)
+        let playerSave = JSON.parse(localStorage.getItem('gotcha_save')) || { xp: 0, animais: [], apiKey: null };
+
+        function atualizarTela() {
+            let nivel = Math.floor(playerSave.xp / 100) + 1;
+            document.getElementById('level-txt').innerText = nivel;
+            document.getElementById('xp-txt').innerText = playerSave.xp;
+            document.getElementById('total-txt').innerText = playerSave.animais.length;
+
+            const pokedex = document.getElementById('pokedex');
+            pokedex.innerHTML = '';
+            
+            // Inverte para os mais novos aparecerem primeiro
+            [...playerSave.animais].reverse().forEach(animal => {
+                pokedex.innerHTML += `
+                    <div class="card">
+                        <img src="${animal.imagem}">
+                        <div class="card-info">
+                            <strong>${animal.nome}</strong><br>
+                            <small class="rarity-${animal.raridade.toLowerCase()}">${animal.raridade} (+${animal.xp} XP)</small>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Verifica a chave da API
+        if (playerSave.apiKey) {
+            document.getElementById('api-modal').style.display = 'none';
+        }
+
+        function salvarApiKey() {
+            const key = document.getElementById('apiKeyInput').value;
+            if(key.length > 10) {
+                playerSave.apiKey = key;
+                salvarJogo();
+                document.getElementById('api-modal').style.display = 'none';
+            }
+        }
+
+        function salvarJogo() {
+            localStorage.setItem('gotcha_save', JSON.stringify(playerSave));
+            atualizarTela();
+        }
+
+        // Função da Câmera
+        document.getElementById('cameraInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('loading').style.display = 'block';
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const base64Image = e.target.result;
+                const base64Data = base64Image.split(',')[1]; 
+
+                await identificarAnimal(base64Data, base64Image);
+            };
+            // Reduz o tamanho da imagem para carregar rápido
+            reader.readAsDataURL(file);
+        });
+
+        // Chama a IA do Gemini
+        async function identificarAnimal(base64Data, imgVisual) {
+            const prompt = `Analise a imagem. Se tiver um animal nela, identifique-o. Retorne EXATAMENTE este formato JSON (sem formatação markdown extra): {"nome": "Nome do animal em português", "raridade": "Comum, Raro, Epico ou Lendario", "xp": número de 10 a 100, "curiosidade": "Uma frase legal"}. Se não for um animal, retorne o nome "Não é um animal", raridade "Comum", xp 0.`;
+            
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${playerSave.apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: prompt },
+                                { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+                            ]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                let textoResposta = data.candidates[0].content.parts[0].text;
+                
+                // Limpa marcação Markdown caso a IA retorne
+                textoResposta = textoResposta.replace(/```json/g, '').replace(/```/g, '').trim();
+                
+                const resultadoJSON = JSON.parse(textoResposta);
+
+                if (resultadoJSON.xp > 0) {
+                    playerSave.animais.push({
+                        nome: resultadoJSON.nome,
+                        raridade: resultadoJSON.raridade,
+                        xp: resultadoJSON.xp,
+                        imagem: imgVisual
+                    });
+                    playerSave.xp += resultadoJSON.xp;
+                    salvarJogo();
+                    alert(`GOTCHA! Você pegou um ${resultadoJSON.nome}!\nCuriosidade: ${resultadoJSON.curiosidade}`);
+                } else {
+                    alert("A IA não encontrou nenhum animal nesta foto. Tente de novo!");
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert("Erro ao analisar a imagem. Verifique sua chave da API ou internet.");
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Inicia a tela
+        atualizarTela();
+    </script>
+</body>
+  </html>
+  
