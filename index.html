@@ -290,7 +290,8 @@
       const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Frase curta sobre ele.\"}. Se nao for animal: {\"isAnimal\": false}.";
 
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        // Rota atualizada para o alias aceito 'gemini-1.5-flash-latest'
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
         const response = await fetch(url, {
           method: 'POST',
@@ -308,7 +309,7 @@
         const data = await response.json();
 
         if (data.error) {
-          alert("Erro na chave: " + data.error.message);
+          alert("Erro: " + data.error.message);
           document.getElementById('loading').style.display = 'none';
           return;
         }
@@ -340,7 +341,7 @@
 
       } catch (err) {
         document.getElementById('loading').style.display = 'none';
-        alert("Erro no envio. Clique em 'Trocar API Key' e tente colar a chave novamente.");
+        alert("Erro no envio de imagem. Tente novamente.");
         console.error(err);
       }
     }
