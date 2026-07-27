@@ -288,10 +288,44 @@
       const pureBase64 = base64Data.split(',')[1];
       const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Frase curta sobre ele.\"}. Se nao for animal: {\"isAnimal\": false}.";
 
-      // Modelo oficial e ativo Gemini 2.5 Flash
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
       try {
+        // PASSO 1: Perguntar ao Google quais modelos a SUA chave tem permissão para usar
+        const modelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+        const modelsResponse = await fetch(modelsUrl);
+        const modelsData = await modelsResponse.json();
+
+        if (modelsData.error) {
+          alert("Erro na validação da chave: " + modelsData.error.message);
+          document.getElementById('loading').style.display = 'none';
+          return;
+        }
+
+        // PASSO 2: Encontrar o modelo ideal automaticamente
+        let selectedModel = "models/gemini-1.5-flash"; // fallback padrão
+        
+        if (modelsData.models && modelsData.models.length > 0) {
+          // Procura o melhor modelo disponível que suporte gerar conteúdo e tenha "flash" no nome
+          const bestModel = modelsData.models.find(m => 
+            m.supportedGenerationMethods && 
+            m.supportedGenerationMethods.includes("generateContent") && 
+            m.name.includes("flash")
+          );
+          
+          if (bestModel) {
+            selectedModel = bestModel.name;
+          } else {
+            // Se não achar o flash, pega literalmente o primeiro que estiver liberado na sua conta
+            const anyModel = modelsData.models.find(m => 
+              m.supportedGenerationMethods && 
+              m.supportedGenerationMethods.includes("generateContent")
+            );
+            if (anyModel) selectedModel = anyModel.name;
+          }
+        }
+
+        // PASSO 3: Fazer a requisição com o modelo escolhido perfeitamente para sua conta
+        const url = `https://generativelanguage.googleapis.com/v1beta/${selectedModel}:generateContent?key=${apiKey}`;
+
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -306,11 +340,10 @@
         });
 
         const data = await response.json();
-
         document.getElementById('loading').style.display = 'none';
 
         if (data.error) {
-          alert("Erro no serviço Google: " + data.error.message);
+          alert("Erro no envio da foto: " + data.error.message);
           return;
         }
 
@@ -339,7 +372,7 @@
 
       } catch (err) {
         document.getElementById('loading').style.display = 'none';
-        alert("Erro no envio. Tente tirar a foto novamente.");
+        alert("Erro no servidor. A requisição falhou, mas tente enviar a foto novamente.");
         console.error(err);
       }
     }
