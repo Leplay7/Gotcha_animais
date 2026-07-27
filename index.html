@@ -178,7 +178,7 @@
 
   <div class="camera-area">
     <h2>Gotcha!</h2>
-    <p>Tire ou escolha uma foto de um animal para capturar!</p>
+    <p>Tire ou escolha uma foto do seu pet para capturar!</p>
     
     <label for="camera-input" class="btn-capture">📸 Enviar ou Tirar Foto</label>
     <input type="file" id="camera-input" accept="image/*" onchange="handleImage(this)">
@@ -279,17 +279,17 @@
           
           analyzePet(resizedBase64);
         };
-        img.src = e.target.result;
+        img.src = e.result || e.target.result;
       };
       reader.readAsDataURL(file);
     }
 
     async function analyzePet(base64Data) {
       const pureBase64 = base64Data.split(',')[1];
-      const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido sem marcacao markdown: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Frase curta sobre ele.\"}. Se nao for animal: {\"isAnimal\": false}.";
+      const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Frase curta sobre ele.\"}. Se nao for animal: {\"isAnimal\": false}.";
 
-      // Modelo único e estável da API oficial
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      // Modelo oficial e ativo Gemini 2.5 Flash
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
       try {
         const response = await fetch(url, {
@@ -339,7 +339,7 @@
 
       } catch (err) {
         document.getElementById('loading').style.display = 'none';
-        alert("Erro ao processar imagem. Tente tirar outra foto.");
+        alert("Erro no envio. Tente tirar a foto novamente.");
         console.error(err);
       }
     }
