@@ -19,7 +19,7 @@
     }
     
     .app-logo {
-      background-color: #FACC15; /* Fundo amarelo */
+      background-color: #FACC15;
       width: 75px;
       height: 75px;
       border-radius: 16px;
@@ -31,8 +31,8 @@
     }
 
     .app-logo svg {
-      fill: #fff; /* Pássaro branco */
-      filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8)); /* Sombra branca */
+      fill: #fff;
+      filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));
       width: 45px;
       height: 45px;
     }
@@ -199,7 +199,6 @@
   </div>
 
   <div class="camera-area">
-    <!-- Novo Logo -->
     <div class="app-logo">
       <svg viewBox="0 0 24 24">
         <path d="M23.643 4.937c-.835.37-1.732.62-2.675.733.962-.576 1.7-1.49 2.048-2.578-.9.534-1.897.922-2.958 1.13-.85-.904-2.06-1.47-3.4-1.47-2.572 0-4.658 2.086-4.658 4.66 0 .364.042.718.12 1.06-3.873-.195-7.304-2.05-9.602-4.868-.4.69-.63 1.49-.63 2.342 0 1.616.823 3.043 2.072 3.878-.764-.025-1.482-.234-2.11-.583v.06c0 2.257 1.605 4.14 3.737 4.568-.392.106-.803.162-1.227.162-.3 0-.593-.028-.877-.082.593 1.85 2.313 3.198 4.352 3.234-1.595 1.25-3.604 1.995-5.786 1.995-.376 0-.747-.022-1.112-.065 2.062 1.323 4.51 2.093 7.14 2.093 8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602.91-.658 1.7-1.477 2.323-2.41z"></path>
@@ -212,7 +211,7 @@
     <label for="camera-input" class="btn-capture">📸 Enviar ou Tirar Foto</label>
     <input type="file" id="camera-input" accept="image/*" onchange="handleImage(this)">
 
-    <div id="loading">Analisando imagem... aguarde!</div>
+    <div id="loading">Caçando sinal da API... aguarde!</div>
     
     <br>
     <button class="btn-reset-key" onclick="resetKey()">🔑 Trocar API Key</button>
@@ -225,8 +224,6 @@
 
   <script>
     let apiKey = localStorage.getItem('gemini_api_key') || '';
-    
-    // Sistema de salvamento de progresso no celular
     let playerData = JSON.parse(localStorage.getItem('gotcha_player')) || {
       nick: 'Treinador',
       xp: 0,
@@ -319,31 +316,62 @@
       const pureBase64 = base64Data.split(',')[1];
       const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Frase curta sobre ele.\"}. Se nao for animal: {\"isAnimal\": false}.";
 
-      // A MÁGICA ESTÁ AQUI: Rota oficial (v1) e modelo garantido (gemini-1.5-flash)
-      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      // Array com todos os nomes possíveis que o Google usa atualmente
+      const modelsToTry = [
+        "gemini-1.5-flash-002",
+        "gemini-1.5-flash-001",
+        "gemini-1.5-pro",
+        "gemini-1.5-pro-002",
+        "gemini-1.0-pro-vision-latest",
+        "gemini-pro-vision"
+      ];
 
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
-              ]
-            }]
-          })
-        });
+      let lastError = "";
+      let success = false;
 
-        const data = await response.json();
-        document.getElementById('loading').style.display = 'none';
+      // O loop testa cada modelo. O primeiro que der certo, ele para e usa.
+      for (let modelName of modelsToTry) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-        if (data.error) {
-          alert("Erro da API: " + data.error.message);
-          return;
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: prompt },
+                  { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
+                ]
+              }]
+            })
+          });
+
+          const data = await response.json();
+
+          if (!data.error) {
+            // DEU CERTO! Sai do loop imediatamente.
+            success = true;
+            processCapture(data, base64Data);
+            break; 
+          } else {
+            // Guarda o erro para mostrar depois, mas continua tentando o próximo modelo
+            lastError = data.error.message;
+          }
+        } catch (err) {
+          lastError = "Erro de conexão com a rede.";
         }
+      }
 
+      document.getElementById('loading').style.display = 'none';
+
+      if (!success) {
+        alert("O Google rejeitou todos os modelos! Detalhe técnico para você ver: " + lastError + "\n\nDica: Você pode precisar gerar uma NOVA API Key no Google AI Studio (a atual pode ter bugado).");
+      }
+    }
+
+    function processCapture(data, base64Data) {
+      try {
         const textResponse = data.candidates[0].content.parts[0].text;
         const cleanJson = textResponse.replace(/```json|```/g, '').trim();
         const result = JSON.parse(cleanJson);
@@ -366,11 +394,8 @@
         } else {
           alert("Ops! A IA não identificou um animal nesta foto.");
         }
-
-      } catch (err) {
-        document.getElementById('loading').style.display = 'none';
-        alert("Erro de conexão. Tente enviar a foto novamente.");
-        console.error(err);
+      } catch (e) {
+        alert("O animal foi analisado, mas a resposta não pôde ser lida. Tente de novo!");
       }
     }
   </script>
