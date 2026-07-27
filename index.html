@@ -286,63 +286,78 @@
 
     async function analyzePet(base64Data) {
       const pureBase64 = base64Data.split(',')[1];
-
       const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Frase curta sobre ele.\"}. Se nao for animal: {\"isAnimal\": false}.";
 
-      try {
-        // Rota atualizada para o alias aceito 'gemini-1.5-flash-latest'
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+      // Lista de modelos suportados para fazer a busca automatica
+      const modelsToTry = [
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+      ];
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
-              ]
-            }]
-          })
-        });
+      let lastError = null;
+      let successData = null;
 
-        const data = await response.json();
-
-        if (data.error) {
-          alert("Erro: " + data.error.message);
-          document.getElementById('loading').style.display = 'none';
-          return;
-        }
-
-        const textResponse = data.candidates[0].content.parts[0].text;
-        const cleanJson = textResponse.replace(/```json|```/g, '').trim();
-        const result = JSON.parse(cleanJson);
-
-        document.getElementById('loading').style.display = 'none';
-
-        if (result.isAnimal) {
-          playerData.xp += 50;
-          if (playerData.xp >= playerData.level * 100) {
-            playerData.level += 1;
-            alert(`🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`);
-          }
-          
-          playerData.captured.unshift({
-            name: result.name,
-            desc: result.desc,
-            image: base64Data
+      for (let baseUrl of modelsToTry) {
+        try {
+          const response = await fetch(`${baseUrl}?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: prompt },
+                  { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
+                ]
+              }]
+            })
           });
 
-          saveGame();
-          alert(`✨ Gotcha! Você capturou um ${result.name}!`);
-        } else {
-          alert("Ops! A IA não identificou um animal nesta foto.");
-        }
+          const data = await response.json();
 
-      } catch (err) {
-        document.getElementById('loading').style.display = 'none';
-        alert("Erro no envio de imagem. Tente novamente.");
-        console.error(err);
+          if (data.candidates && data.candidates[0]) {
+            successData = data;
+            break; // Encontrou um modelo que respondeu com sucesso!
+          } else if (data.error) {
+            lastError = data.error.message;
+          }
+        } catch (e) {
+          lastError = e.message;
+        }
+      }
+
+      document.getElementById('loading').style.display = 'none';
+
+      if (successData) {
+        try {
+          const textResponse = successData.candidates[0].content.parts[0].text;
+          const cleanJson = textResponse.replace(/```json|```/g, '').trim();
+          const result = JSON.parse(cleanJson);
+
+          if (result.isAnimal) {
+            playerData.xp += 50;
+            if (playerData.xp >= playerData.level * 100) {
+              playerData.level += 1;
+              alert(`🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`);
+            }
+            
+            playerData.captured.unshift({
+              name: result.name,
+              desc: result.desc,
+              image: base64Data
+            });
+
+            saveGame();
+            alert(`✨ Gotcha! Você capturou um ${result.name}!`);
+          } else {
+            alert("Ops! A IA não identificou um animal nesta foto.");
+          }
+        } catch (jsonErr) {
+          alert("A IA respondeu, mas não em formato esperado. Tente tirar a foto novamente.");
+        }
+      } else {
+        alert("Erro na conexão: " + (lastError || "Verifique sua API Key."));
       }
     }
   </script>
