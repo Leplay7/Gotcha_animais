@@ -18,6 +18,25 @@
       min-height: 100vh;
     }
     
+    .app-logo {
+      background-color: #FACC15; /* Fundo amarelo */
+      width: 75px;
+      height: 75px;
+      border-radius: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+
+    .app-logo svg {
+      fill: #fff; /* Pássaro branco */
+      filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8)); /* Sombra branca */
+      width: 45px;
+      height: 45px;
+    }
+
     .top-bar {
       width: 100%;
       max-width: 400px;
@@ -80,7 +99,7 @@
     }
 
     .modal-content button {
-      background: #ffd700;
+      background: #FACC15;
       border: none;
       padding: 10px 15px;
       font-weight: bold;
@@ -96,6 +115,9 @@
       padding: 20px;
       border-radius: 12px;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     input[type="file"] {
@@ -103,7 +125,7 @@
     }
 
     .btn-capture {
-      background: #ffd700;
+      background: #FACC15;
       color: #000;
       padding: 12px 20px;
       font-size: 1em;
@@ -128,7 +150,7 @@
 
     #loading {
       margin-top: 15px;
-      color: #ffd700;
+      color: #FACC15;
       display: none;
     }
 
@@ -177,6 +199,13 @@
   </div>
 
   <div class="camera-area">
+    <!-- Novo Logo -->
+    <div class="app-logo">
+      <svg viewBox="0 0 24 24">
+        <path d="M23.643 4.937c-.835.37-1.732.62-2.675.733.962-.576 1.7-1.49 2.048-2.578-.9.534-1.897.922-2.958 1.13-.85-.904-2.06-1.47-3.4-1.47-2.572 0-4.658 2.086-4.658 4.66 0 .364.042.718.12 1.06-3.873-.195-7.304-2.05-9.602-4.868-.4.69-.63 1.49-.63 2.342 0 1.616.823 3.043 2.072 3.878-.764-.025-1.482-.234-2.11-.583v.06c0 2.257 1.605 4.14 3.737 4.568-.392.106-.803.162-1.227.162-.3 0-.593-.028-.877-.082.593 1.85 2.313 3.198 4.352 3.234-1.595 1.25-3.604 1.995-5.786 1.995-.376 0-.747-.022-1.112-.065 2.062 1.323 4.51 2.093 7.14 2.093 8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602.91-.658 1.7-1.477 2.323-2.41z"></path>
+      </svg>
+    </div>
+
     <h2>Gotcha!</h2>
     <p>Tire ou escolha uma foto do seu pet para capturar!</p>
     
@@ -196,8 +225,10 @@
 
   <script>
     let apiKey = localStorage.getItem('gemini_api_key') || '';
+    
+    // Sistema de salvamento de progresso no celular
     let playerData = JSON.parse(localStorage.getItem('gotcha_player')) || {
-      nick: 'Leplay07',
+      nick: 'Treinador',
       xp: 0,
       level: 1,
       captured: []
@@ -288,44 +319,10 @@
       const pureBase64 = base64Data.split(',')[1];
       const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Frase curta sobre ele.\"}. Se nao for animal: {\"isAnimal\": false}.";
 
+      // A MÁGICA ESTÁ AQUI: Rota oficial (v1) e modelo garantido (gemini-1.5-flash)
+      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
       try {
-        // PASSO 1: Perguntar ao Google quais modelos a SUA chave tem permissão para usar
-        const modelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-        const modelsResponse = await fetch(modelsUrl);
-        const modelsData = await modelsResponse.json();
-
-        if (modelsData.error) {
-          alert("Erro na validação da chave: " + modelsData.error.message);
-          document.getElementById('loading').style.display = 'none';
-          return;
-        }
-
-        // PASSO 2: Encontrar o modelo ideal automaticamente
-        let selectedModel = "models/gemini-1.5-flash"; // fallback padrão
-        
-        if (modelsData.models && modelsData.models.length > 0) {
-          // Procura o melhor modelo disponível que suporte gerar conteúdo e tenha "flash" no nome
-          const bestModel = modelsData.models.find(m => 
-            m.supportedGenerationMethods && 
-            m.supportedGenerationMethods.includes("generateContent") && 
-            m.name.includes("flash")
-          );
-          
-          if (bestModel) {
-            selectedModel = bestModel.name;
-          } else {
-            // Se não achar o flash, pega literalmente o primeiro que estiver liberado na sua conta
-            const anyModel = modelsData.models.find(m => 
-              m.supportedGenerationMethods && 
-              m.supportedGenerationMethods.includes("generateContent")
-            );
-            if (anyModel) selectedModel = anyModel.name;
-          }
-        }
-
-        // PASSO 3: Fazer a requisição com o modelo escolhido perfeitamente para sua conta
-        const url = `https://generativelanguage.googleapis.com/v1beta/${selectedModel}:generateContent?key=${apiKey}`;
-
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -343,7 +340,7 @@
         document.getElementById('loading').style.display = 'none';
 
         if (data.error) {
-          alert("Erro no envio da foto: " + data.error.message);
+          alert("Erro da API: " + data.error.message);
           return;
         }
 
@@ -372,7 +369,7 @@
 
       } catch (err) {
         document.getElementById('loading').style.display = 'none';
-        alert("Erro no servidor. A requisição falhou, mas tente enviar a foto novamente.");
+        alert("Erro de conexão. Tente enviar a foto novamente.");
         console.error(err);
       }
     }
