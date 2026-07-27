@@ -115,6 +115,17 @@
       margin-top: 10px;
     }
 
+    .btn-reset-key {
+      background: transparent;
+      border: 1px solid #777;
+      color: #aaa;
+      padding: 5px 10px;
+      font-size: 0.8em;
+      border-radius: 5px;
+      margin-top: 15px;
+      cursor: pointer;
+    }
+
     #loading {
       margin-top: 15px;
       color: #ffd700;
@@ -169,11 +180,13 @@
     <h2>Gotcha!</h2>
     <p>Tire ou escolha uma foto do seu pet para capturar!</p>
     
-    <!-- Removido 'capture="environment"' para evitar o travamento de memória da câmera nativa -->
     <label for="camera-input" class="btn-capture">📸 Enviar ou Tirar Foto</label>
     <input type="file" id="camera-input" accept="image/*" onchange="handleImage(this)">
 
     <div id="loading">Analisando imagem... aguarde!</div>
+    
+    <br>
+    <button class="btn-reset-key" onclick="resetKey()">🔑 Trocar API Key</button>
   </div>
 
   <div class="collection">
@@ -203,6 +216,13 @@
         apiKey = key;
         document.getElementById('api-modal').style.display = 'none';
       }
+    }
+
+    function resetKey() {
+      localStorage.removeItem('gemini_api_key');
+      apiKey = '';
+      document.getElementById('api-key-input').value = '';
+      document.getElementById('api-modal').style.display = 'flex';
     }
 
     function saveNick(val) {
@@ -246,7 +266,7 @@
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 600; // Reduzido para 600px para garantir total leveza no Android
+          const MAX_WIDTH = 600;
           const scaleSize = MAX_WIDTH / img.width;
           
           canvas.width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
@@ -267,10 +287,11 @@
     async function analyzePet(base64Data) {
       const pureBase64 = base64Data.split(',')[1];
 
-      const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON válido como este: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Uma frase curta sobre ele.\"}. Se não for um animal, retorne {\"isAnimal\": false}.";
+      const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido como este: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Uma frase curta sobre ele.\"}. Se nao for um animal, retorne {\"isAnimal\": false}.";
 
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        // Atualizado para o modelo padrão e mais recente do Gemini Flash
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -284,6 +305,11 @@
         });
 
         const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error.message || "Chave invalida");
+        }
+
         const textResponse = data.candidates[0].content.parts[0].text;
         const cleanJson = textResponse.replace(/```json|```/g, '').trim();
         const result = JSON.parse(cleanJson);
@@ -311,7 +337,7 @@
 
       } catch (err) {
         document.getElementById('loading').style.display = 'none';
-        alert("Erro ao analisar imagem. Verifique se inseriu a API Key correta!");
+        alert("Erro ao analisar imagem! Verifique se sua API Key foi copiada corretamente sem espaços.");
         console.error(err);
       }
     }
