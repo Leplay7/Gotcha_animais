@@ -1,0 +1,16 @@
+{
+  "name": "Gotcha: Animais",
+  "short_name": "Gotcha",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#FFD700",
+  "theme_color": "#FFD700",
+  "description": "Identifique e colecione animais do mundo real!",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
