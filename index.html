@@ -177,6 +177,33 @@
       border-radius: 6px;
     }
 
+    /* ESTILOS DE RARIDADE */
+    @keyframes rainbow-border {
+      0% { border-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.8); }
+      20% { border-color: #f97316; box-shadow: 0 0 10px rgba(249, 115, 22, 0.8); }
+      40% { border-color: #eab308; box-shadow: 0 0 10px rgba(234, 179, 8, 0.8); }
+      60% { border-color: #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.8); }
+      80% { border-color: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.8); }
+      100% { border-color: #a855f7; box-shadow: 0 0 10px rgba(168, 85, 247, 0.8); }
+    }
+
+    .rarity-comum { border: 2px solid #aaaaaa !important; }
+    .rarity-rara { border: 2px solid #3b82f6 !important; box-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
+    .rarity-epico { border: 2px solid #a855f7 !important; box-shadow: 0 0 8px rgba(168, 85, 247, 0.5); }
+    .rarity-mitico { border: 2px solid #ef4444 !important; box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
+    .rarity-lendario { border: 2px solid #eab308 !important; box-shadow: 0 0 10px rgba(234, 179, 8, 0.7); }
+    .rarity-super-lendario { border: 2px solid #ef4444 !important; animation: rainbow-border 2.5s linear infinite; }
+
+    .rarity-tag {
+      font-size: 0.7em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #111;
+      display: inline-block;
+      margin-top: 3px;
+      font-weight: bold;
+    }
+
     /* Estilos do Guia de Espécies */
     .category-box {
       background: #2b2b2b;
@@ -209,7 +236,6 @@
     }
 
     .species-item.unlocked {
-      border: 1px solid #FACC15;
       background: #333;
     }
 
@@ -298,26 +324,35 @@
       captured: []
     };
 
+    const rarityMap = {
+      "Comum": { icon: "⚪", css: "rarity-comum", xp: 50 },
+      "Rara": { icon: "🔵", css: "rarity-rara", xp: 100 },
+      "Épico": { icon: "🟣", css: "rarity-epico", xp: 200 },
+      "Mítico": { icon: "🔴", css: "rarity-mitico", xp: 350 },
+      "Lendário": { icon: "🟡", css: "rarity-lendario", xp: 500 },
+      "Super Lendário": { icon: "🌈", css: "rarity-super-lendario", xp: 1000 }
+    };
+
     const pediaCategories = {
       "🦅 Aves": [
-        { name: "Papagaio", icon: "🦜" },
-        { name: "Arara", icon: "🦚" },
-        { name: "Pato", icon: "🦆" }
+        { name: "Papagaio", icon: "🦜", defaultRarity: "Rara" },
+        { name: "Arara", icon: "🦚", defaultRarity: "Épico" },
+        { name: "Pato", icon: "🦆", defaultRarity: "Comum" }
       ],
       "🦎 Répteis": [
-        { name: "Tartaruga", icon: "🐢" },
-        { name: "Iguana", icon: "🐊" },
-        { name: "Cobra", icon: "🐍" }
+        { name: "Tartaruga", icon: "🐢", defaultRarity: "Rara" },
+        { name: "Iguana", icon: "🐊", defaultRarity: "Épico" },
+        { name: "Cobra", icon: "🐍", defaultRarity: "Épico" }
       ],
       "🌊 Aquáticos": [
-        { name: "Peixe", icon: "🐠" },
-        { name: "Golfinho", icon: "🐬" },
-        { name: "Baleia", icon: "🐋" }
+        { name: "Peixe", icon: "🐠", defaultRarity: "Comum" },
+        { name: "Golfinho", icon: "🐬", defaultRarity: "Mítico" },
+        { name: "Baleia", icon: "🐋", defaultRarity: "Lendário" }
       ],
       "🐾 Mamíferos": [
-        { name: "Cachorro", icon: "🐶" },
-        { name: "Gato", icon: "🐱" },
-        { name: "Coelho", icon: "🐰" }
+        { name: "Cachorro", icon: "🐶", defaultRarity: "Comum" },
+        { name: "Gato", icon: "🐱", defaultRarity: "Comum" },
+        { name: "Coelho", icon: "🐰", defaultRarity: "Comum" }
       ]
     };
 
@@ -353,25 +388,35 @@
       updateUI();
     }
 
+    function getRarityInfo(rarityName) {
+      return rarityMap[rarityName] || rarityMap["Comum"];
+    }
+
     function updateUI() {
       document.getElementById('level').innerText = playerData.level;
       document.getElementById('xp').innerText = playerData.xp;
       document.getElementById('captured-count').innerText = playerData.captured.length;
       
+      // Renderiza Coleção Recente
       const list = document.getElementById('cards-list');
       list.innerHTML = '';
       playerData.captured.forEach(item => {
+        const rarity = item.rarity || "Comum";
+        const rInfo = getRarityInfo(rarity);
+        
         list.innerHTML += `
-          <div class="card">
+          <div class="card ${rInfo.css}">
             <img src="${item.image}" alt="Pet">
             <div>
               <strong>${item.name}</strong><br>
-              <small>${item.desc}</small>
+              <small>${item.desc}</small><br>
+              <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
             </div>
           </div>
         `;
       });
 
+      // Renderiza Guia de Espécies
       const catContainer = document.getElementById('categories-container');
       catContainer.innerHTML = '';
 
@@ -382,17 +427,23 @@
           const found = playerData.captured.find(c => c.name.toLowerCase().includes(target.name.toLowerCase()));
           
           if (found) {
+            const rarity = found.rarity || target.defaultRarity;
+            const rInfo = getRarityInfo(rarity);
+            
             gridHtml += `
-              <div class="species-item unlocked">
+              <div class="species-item unlocked ${rInfo.css}">
                 <img src="${found.image}" class="species-img" alt="${target.name}">
-                <div class="species-name">✨ ${found.name}</div>
+                <div class="species-name">${found.name}</div>
+                <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
               </div>
             `;
           } else {
+            const rInfo = getRarityInfo(target.defaultRarity);
             gridHtml += `
               <div class="species-item">
                 <div class="species-silhouette">${target.icon}</div>
                 <div class="species-name">${target.name}</div>
+                <span class="rarity-tag">${rInfo.icon} ${target.defaultRarity}</span>
               </div>
             `;
           }
@@ -438,7 +489,21 @@
 
     async function analyzePet(base64Data) {
       const pureBase64 = base64Data.split(',')[1];
-      const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Frase curta sobre ele.\"}. Se nao for animal: {\"isAnimal\": false}.";
+      
+      const prompt = `Identifique o animal desta foto e defina a raridade dele.
+Responda APENAS em JSON valido:
+{"isAnimal": true, "name": "Nome do Animal", "desc": "Frase curta sobre ele.", "rarity": "Comum"}
+
+As opcoes validas de "rarity" sao EXATAMENTE: "Comum", "Rara", "Épico", "Mítico", "Lendário", "Super Lendário".
+Regras de Raridade:
+- Cachorros, Gatos, Passaros comuns, Peixes de aquario = Comum
+- Papagaios, Tartarugas, Calopsitas, Patos = Rara
+- Araras, Iguanas, Cobras, Camaleoes = Épico
+- Golfinhos, Tubaroes, Animais Selvagens raros = Mítico
+- Elefantes, Leoes, Baleias, Pandas = Lendário
+- Animais extremamente raros, extintos ou fantásticos = Super Lendário
+
+Se nao for animal: {"isAnimal": false}.`;
 
       try {
         document.getElementById('loading').innerText = "Analisando chave...";
@@ -513,7 +578,11 @@
         }
 
         if (result.isAnimal) {
-          playerData.xp += 50;
+          const rarity = result.rarity || "Comum";
+          const rInfo = getRarityInfo(rarity);
+
+          playerData.xp += rInfo.xp;
+
           if (playerData.xp >= playerData.level * 100) {
             playerData.level += 1;
             alert(`🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`);
@@ -522,11 +591,12 @@
           playerData.captured.unshift({
             name: result.name,
             desc: result.desc,
+            rarity: rarity,
             image: base64Data
           });
 
           saveGame();
-          alert(`✨ Gotcha! Você capturou um ${result.name}!\n\n(Modelo vencedor: ${usedModel})`);
+          alert(`✨ Gotcha! Você capturou um ${result.name}!\n\nRaridade: ${rInfo.icon} ${rarity}\nXP Ganho: +${rInfo.xp}`);
         } else {
           alert("Ops! A IA não identificou um animal nesta foto.");
         }
@@ -540,5 +610,4 @@
     }
   </script>
 </body>
-                           </html>
-  
+</html>
