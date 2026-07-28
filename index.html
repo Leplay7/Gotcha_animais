@@ -267,7 +267,7 @@
     </div>
 
     <h2>Gotcha!</h2>
-    <p>escolha uma foto de um animal para capturar!</p>
+    <p>Tire ou escolha uma foto do seu pet para capturar!</p>
     
     <label for="camera-input" class="btn-capture">📸 Enviar ou Tirar Foto</label>
     <input type="file" id="camera-input" accept="image/*" onchange="handleImage(this)">
@@ -285,264 +285,20 @@
   </div>
 
   <div class="section-container">
-    <h3>Sua Coleção Recente (<span id="captured-count">0</span>)</h3>
-    <div id="cards-list"></div>
-  </div>
+    <h3>Sua Coleção Recente (<span id="captured-count">0</span>)Puxa, que frustrante! Entendo como é chato tentar iniciar o jogo e o aplicativo simplesmente não responder. 
 
-  <script>
-    let apiKey = localStorage.getItem('gemini_api_key') || '';
-    let playerData = JSON.parse(localStorage.getItem('gotcha_player')) || {
-      nick: 'Treinador',
-      xp: 0,
-      level: 1,
-      captured: []
-    };
+Mas olhando com atenção a captura de tela que você enviou (1000512883.png), notei um pequeno detalhe que está causando esse bloqueio:
 
-    // Definição das categorias e as 3 sombras sugeridas para foto
-    const pediaCategories = {
-      "🦅 Aves": [
-        { name: "Papagaio", icon: "🦜" },
-        { name: "Arara", icon: "🦚" },
-        { name: "Pato", icon: "🦆" }
-      ],
-      "🦎 Répteis": [
-        { name: "Tartaruga", icon: "🐢" },
-        { name: "Iguana", icon: "🐊" },
-        { name: "Cobra", icon: "🐍" }
-      ],
-      "🌊 Aquáticos": [
-        { name: "Peixe", icon: "🐠" },
-        { name: "Golfinho", icon: "🐬" },
-        { name: "Baleia", icon: "🐋" }
-      ],
-      "🐾 Mamíferos": [
-        { name: "Cachorro", icon: "🐶" },
-        { name: "Gato", icon: "🐱" },
-        { name: "Coelho", icon: "🐰" }
-      ]
-    };
+### **O Modo Avião está ativado**
+Se você observar a barra superior do seu celular, bem no canto direito (ao lado do ícone da bateria), há um ícone de avião ✈️. Isso significa que o seu aparelho está completamente sem conexão com a internet (sem Wi-Fi e sem rede de dados móveis).
 
-    window.onload = () => {
-      if (apiKey) document.getElementById('api-modal').style.display = 'none';
-      document.getElementById('nickname').value = playerData.nick;
-      updateUI();
-    };
+Como o aplicativo "Gotcha!" precisa de internet para se comunicar com os servidores do Google AI Studio e validar a sua API Key, ele não consegue processar o seu clique no botão enquanto o aparelho estiver offline. 
 
-    function saveApiKey() {
-      const key = document.getElementById('api-key-input').value.trim();
-      if (key) {
-        localStorage.setItem('gemini_api_key', key);
-        apiKey = key;
-        document.getElementById('api-modal').style.display = 'none';
-      }
-    }
+### **Como resolver isso rapidamente:**
+1. Deslize a tela de cima para baixo para abrir o menu de configurações rápidas do seu Android.
+2. **Desative o Modo Avião** clicando no ícone do aviãozinho.
+3. Certifique-se de que o **Wi-Fi** ou os **Dados Móveis (4G/5G)** estão ativados e conectados.
+4. Volte para o aplicativo e clique em **Começar a Jogar** novamente.
 
-    function resetKey() {
-      localStorage.removeItem('gemini_api_key');
-      apiKey = '';
-      document.getElementById('api-key-input').value = '';
-      document.getElementById('api-modal').style.display = 'flex';
-    }
-
-    function saveNick(val) {
-      playerData.nick = val || 'Treinador';
-      saveGame();
-    }
-
-    function saveGame() {
-      localStorage.setItem('gotcha_player', JSON.stringify(playerData));
-      updateUI();
-    }
-
-    function updateUI() {
-      document.getElementById('level').innerText = playerData.level;
-      document.getElementById('xp').innerText = playerData.xp;
-      document.getElementById('captured-count').innerText = playerData.captured.length;
+**Dica extra:** Se a internet estiver funcionando e o botão continuar sem responder, apague tudo o que está no campo de texto e cole a sua API Key novamente. Às vezes, copiamos acidentalmente um "espaço em branco" no início ou no final da chave, o que pode invalidá-la.
       
-      // Renderiza a Coleção Recente
-      const list = document.getElementById('cards-list');
-      list.innerHTML = '';
-      playerData.captured.forEach(item => {
-        list.innerHTML += `
-          <div class="card">
-            <img src="${item.image}" alt="Pet">
-            <div>
-              <strong>${item.name}</strong><br>
-              <small>${item.desc}</small>
-            </div>
-          </div>
-        `;
-      });
-
-      // Renderiza o Guia de Espécies por Categorias (Pokedex)
-      const catContainer = document.getElementById('categories-container');
-      catContainer.innerHTML = '';
-
-      for (let [catName, animals] of Object.entries(pediaCategories)) {
-        let gridHtml = '';
-        
-        animals.forEach(target => {
-          // Procura se o usuário já capturou um animal cujo nome contenha o alvo
-          const found = playerData.captured.find(c => c.name.toLowerCase().includes(target.name.toLowerCase()));
-          
-          if (found) {
-            // Destravado com a foto real
-            gridHtml += `
-              <div class="species-item unlocked">
-                <img src="${found.image}" class="species-img" alt="${target.name}">
-                <div class="species-name">✨ ${found.name}</div>
-              </div>
-            `;
-          } else {
-            // Silhueta bloqueada
-            gridHtml += `
-              <div class="species-item">
-                <div class="species-silhouette">${target.icon}</div>
-                <div class="species-name">${target.name}</div>
-              </div>
-            `;
-          }
-        });
-
-        catContainer.innerHTML += `
-          <div class="category-box">
-            <div class="category-title">${catName}</div>
-            <div class="species-grid">${gridHtml}</div>
-          </div>
-        `;
-      }
-    }
-
-    function handleImage(input) {
-      if (!input.files || !input.files[0]) return;
-      
-      document.getElementById('loading').style.display = 'block';
-      const file = input.files[0];
-      const reader = new FileReader();
-
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 600;
-          const scaleSize = MAX_WIDTH / img.width;
-          
-          canvas.width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
-          canvas.height = (img.width > MAX_WIDTH) ? (img.height * scaleSize) : img.height;
-
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          const resizedBase64 = canvas.toDataURL('image/jpeg', 0.6);
-          
-          analyzePet(resizedBase64);
-        };
-        img.src = e.result || e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    async function analyzePet(base64Data) {
-      const pureBase64 = base64Data.split(',')[1];
-      const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Frase curta sobre ele.\"}. Se nao for animal: {\"isAnimal\": false}.";
-
-      try {
-        document.getElementById('loading').innerText = "Analisando chave...";
-        const modelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-        const modelsRes = await fetch(modelsUrl);
-        const modelsData = await modelsRes.json();
-
-        if (modelsData.error) {
-          alert("Erro na chave da API: " + modelsData.error.message);
-          document.getElementById('loading').style.display = 'none';
-          return;
-        }
-
-        let candidateModels = [];
-        for (let m of modelsData.models) {
-          if (m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")) {
-            if (m.name.includes("flash")) {
-              candidateModels.unshift(m.name);
-            } else {
-              candidateModels.push(m.name);
-            }
-          }
-        }
-
-        if (candidateModels.length === 0) {
-          alert("Erro: O Google não liberou NENHUM modelo compatível para a sua chave.");
-          document.getElementById('loading').style.display = 'none';
-          return;
-        }
-
-        let success = false;
-        let result = null;
-        let usedModel = "";
-
-        for (let modelName of candidateModels) {
-          try {
-            document.getElementById('loading').innerText = `Testando ${modelName.replace('models/', '')}...`;
-            const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
-
-            const response = await fetch(generateUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { text: prompt },
-                    { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
-                  ]
-                }]
-              })
-            });
-
-            const data = await response.json();
-
-            if (!data.error && data.candidates && data.candidates[0]) {
-              const textResponse = data.candidates[0].content.parts[0].text;
-              const cleanJson = textResponse.replace(/```json|```/g, '').trim();
-              result = JSON.parse(cleanJson);
-              usedModel = modelName;
-              success = true;
-              break;
-            }
-          } catch (e) {}
-        }
-
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('loading': 'Consultando o Google... aguarde!');
-
-        if (!success || !result) {
-          alert("Erro: Nenhum dos modelos testados aceitou a requisição.");
-          return;
-        }
-
-        if (result.isAnimal) {
-          playerData.xp += 50;
-          if (playerData.xp >= playerData.level * 100) {
-            playerData.level += 1;
-            alert(`🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`);
-          }
-          
-          playerData.captured.unshift({
-            name: result.name,
-            desc: result.desc,
-            image: base64Data
-          });
-
-          saveGame();
-          alert(`✨ Gotcha! Você capturou um ${result.name}!\n\n(Modelo vencedor: ${usedModel})`);
-        } else {
-          alert("Ops! A IA não identificou um animal nesta foto.");
-        }
-
-      } catch (err) {
-        document.getElementById('loading').style.display = 'none';
-        alert("Erro de conexão. Tente enviar a foto novamente.");
-        console.error(err);
-      }
-    }
-  </script>
-</body>
-</html>
