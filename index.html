@@ -6,7 +6,6 @@
   <title>Gotcha!</title>
   <link rel="manifest" href="/manifest.json">
   <style>
-    /* O CSS continua o mesmo */
     body {
       font-family: Arial, sans-serif;
       background-color: #222;
@@ -89,23 +88,28 @@
       border-radius: 12px;
       text-align: center;
       max-width: 320px;
+      box-sizing: border-box;
     }
 
     .modal-content input {
-      width: 90%;
-      padding: 8px;
+      width: 100%;
+      padding: 10px;
       margin: 10px 0;
       border: 1px solid #ccc;
       border-radius: 5px;
+      box-sizing: border-box;
+      font-size: 0.9em;
     }
 
     .modal-content button {
       background: #FACC15;
       border: none;
-      padding: 10px 15px;
+      padding: 12px 20px;
       font-weight: bold;
       border-radius: 5px;
       cursor: pointer;
+      width: 100%;
+      font-size: 1em;
     }
 
     .camera-area {
@@ -280,8 +284,9 @@
     <div class="modal-content">
       <h3>Bem-vindo ao Gotcha!</h3>
       <p>Cole sua API Key do Google AI Studio abaixo:</p>
-      <input type="password" id="api-key-input" placeholder="Cole sua API Key aqui...">
-      <button onclick="saveApiKey()">Começar a Jogar</button>
+      <!-- Mudado de type="password" para type="text" para evitar travamento mobile -->
+      <input type="text" id="api-key-input" placeholder="Cole sua API Key aqui...">
+      <button type="button" onclick="saveApiKey()">Começar a Jogar</button>
     </div>
   </div>
 
@@ -365,7 +370,6 @@
       ]
     };
 
-    // NOVA FUNÇÃO: Recalcula o XP exato baseado apenas nos cards que sobraram!
     function recalculateStats() {
       let totalXp = 0;
       playerData.captured.forEach(item => {
@@ -375,7 +379,6 @@
       });
       
       playerData.xp = totalXp;
-      // Calcula o nível: a cada 100 XP sobe 1 nível. Nível base é 1.
       playerData.level = Math.floor(totalXp / 100) + 1; 
     }
 
@@ -390,7 +393,6 @@
         }
       });
       
-      // Força o recálculo logo ao abrir o app para limpar "XP Fantasma"
       recalculateStats();
       hasChanges = true; 
 
@@ -398,17 +400,25 @@
         localStorage.setItem('gotcha_player', JSON.stringify(playerData));
       }
 
-      if (apiKey) document.getElementById('api-modal').style.display = 'none';
+      if (apiKey && apiKey.trim() !== '') {
+        document.getElementById('api-modal').style.display = 'none';
+      } else {
+        document.getElementById('api-modal').style.display = 'flex';
+      }
+
       document.getElementById('nickname').value = playerData.nick;
       updateUI();
     };
 
     function saveApiKey() {
-      const key = document.getElementById('api-key-input').value.trim();
-      if (key) {
-        localStorage.setItem('gemini_api_key', key);
-        apiKey = key;
+      const inputVal = document.getElementById('api-key-input').value.trim();
+      if (inputVal !== '') {
+        localStorage.setItem('gemini_api_key', inputVal);
+        apiKey = inputVal;
         document.getElementById('api-modal').style.display = 'none';
+        updateUI();
+      } else {
+        alert("Por favor, cole uma API Key válida.");
       }
     }
 
@@ -432,7 +442,7 @@
     function deleteCard(index) {
       if (confirm("Deseja apagar esta captura da sua coleção? O XP será descontado.")) {
         playerData.captured.splice(index, 1);
-        recalculateStats(); // Recalcula XP e Nível antes de salvar
+        recalculateStats();
         saveGame();
       }
     }
@@ -636,14 +646,10 @@ Se nao for animal: {"isAnimal": false}.`;
             image: base64Data
           });
 
-          // Usando o recálculo ao invés de só somar
           let oldLevel = playerData.level;
           recalculateStats();
           saveGame();
 
           let levelUpMsg = "";
           if (playerData.level > oldLevel) {
-            levelUpMsg = `\n🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`;
-          }
-
-          a
+            
