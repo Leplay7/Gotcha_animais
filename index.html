@@ -177,6 +177,15 @@
       border-radius: 6px;
     }
 
+    .btn-delete {
+      background: none;
+      border: none;
+      color: #ef4444;
+      font-size: 1.2em;
+      cursor: pointer;
+      padding: 5px;
+    }
+
     /* ESTILOS DE RARIDADE */
     @keyframes rainbow-border {
       0% { border-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.8); }
@@ -357,6 +366,20 @@
     };
 
     window.onload = () => {
+      // Migração e correção automática de dados antigos
+      let hasChanges = false;
+      playerData.captured.forEach(item => {
+        if (!item.rarity || (item.name.toLowerCase().includes('papagaio') && item.rarity === 'Comum')) {
+          if (item.name.toLowerCase().includes('papagaio')) {
+            item.rarity = 'Rara';
+            hasChanges = true;
+          }
+        }
+      });
+      if (hasChanges) {
+        localStorage.setItem('gotcha_player', JSON.stringify(playerData));
+      }
+
       if (apiKey) document.getElementById('api-modal').style.display = 'none';
       document.getElementById('nickname').value = playerData.nick;
       updateUI();
@@ -388,6 +411,13 @@
       updateUI();
     }
 
+    function deleteCard(index) {
+      if (confirm("Deseja apagar esta captura da sua coleção?")) {
+        playerData.captured.splice(index, 1);
+        saveGame();
+      }
+    }
+
     function getRarityInfo(rarityName) {
       return rarityMap[rarityName] || rarityMap["Comum"];
     }
@@ -400,18 +430,19 @@
       // Renderiza Coleção Recente
       const list = document.getElementById('cards-list');
       list.innerHTML = '';
-      playerData.captured.forEach(item => {
+      playerData.captured.forEach((item, index) => {
         const rarity = item.rarity || "Comum";
         const rInfo = getRarityInfo(rarity);
         
         list.innerHTML += `
           <div class="card ${rInfo.css}">
             <img src="${item.image}" alt="Pet">
-            <div>
+            <div style="flex: 1;">
               <strong>${item.name}</strong><br>
               <small>${item.desc}</small><br>
               <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
             </div>
+            <button class="btn-delete" onclick="deleteCard(${index})" title="Apagar captura">🗑️</button>
           </div>
         `;
       });
