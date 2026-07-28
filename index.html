@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
+<head>AQ.Ab8RN6J2DftKqjNWERrHWGERPGcxiCR5DHrKm02iMyDeeaoDgg
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gotcha!</title>
@@ -71,47 +71,6 @@
       color: #ddd;
     }
 
-    #api-modal {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.85);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 10;
-    }
-
-    .modal-content {
-      background: #fff;
-      color: #000;
-      padding: 20px;
-      border-radius: 12px;
-      text-align: center;
-      max-width: 320px;
-      box-sizing: border-box;
-    }
-
-    .modal-content input {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      box-sizing: border-box;
-      font-size: 0.9em;
-    }
-
-    .modal-content button {
-      background: #FACC15;
-      border: none;
-      padding: 12px 20px;
-      font-weight: bold;
-      border-radius: 5px;
-      cursor: pointer;
-      width: 100%;
-      font-size: 1em;
-    }
-
     .camera-area {
       width: 100%;
       max-width: 400px;
@@ -140,17 +99,6 @@
       cursor: pointer;
       display: inline-block;
       margin-top: 10px;
-    }
-
-    .btn-reset-key {
-      background: transparent;
-      border: 1px solid #777;
-      color: #aaa;
-      padding: 5px 10px;
-      font-size: 0.8em;
-      border-radius: 5px;
-      margin-top: 15px;
-      cursor: pointer;
     }
 
     #loading {
@@ -280,16 +228,6 @@
 </head>
 <body>
 
-  <div id="api-modal">
-    <div class="modal-content">
-      <h3>Bem-vindo ao Gotcha!</h3>
-      <p>Cole sua API Key do Google AI Studio abaixo:</p>
-      <!-- Mudado de type="password" para type="text" para evitar travamento mobile -->
-      <input type="text" id="api-key-input" placeholder="Cole sua API Key aqui...">
-      <button type="button" onclick="saveApiKey()">Começar a Jogar</button>
-    </div>
-  </div>
-
   <div class="top-bar">
     <div class="nick-container">
       🎮 <input type="text" id="nickname" class="nick-input" placeholder="Seu Nick" onchange="saveNick(this.value)">
@@ -313,12 +251,8 @@
     <input type="file" id="camera-input" accept="image/*" onchange="handleImage(this)">
 
     <div id="loading">Consultando o Google... aguarde!</div>
-    
-    <br>
-    <button class="btn-reset-key" onclick="resetKey()">🔑 Trocar API Key</button>
   </div>
 
-  <!-- GUIA DE ESPÉCIES -->
   <div class="section-container">
     <h3>📖 Guia de Espécies (Para Fotografar)</h3>
     <div id="categories-container" style="margin-top: 10px;"></div>
@@ -330,7 +264,10 @@
   </div>
 
   <script>
-    let apiKey = localStorage.getItem('gemini_api_key') || '';
+    // Se quiser colocar uma chave fixa para não precisar digitar nunca, cole ela aqui dentro das aspas:
+    // Exemplo: let apiKey = "AIzaSy...";
+    let apiKey = localStorage.getItem('gemini_api_key') || "";
+
     let playerData = JSON.parse(localStorage.getItem('gotcha_player')) || {
       nick: 'Treinador',
       xp: 0,
@@ -400,34 +337,9 @@
         localStorage.setItem('gotcha_player', JSON.stringify(playerData));
       }
 
-      if (apiKey && apiKey.trim() !== '') {
-        document.getElementById('api-modal').style.display = 'none';
-      } else {
-        document.getElementById('api-modal').style.display = 'flex';
-      }
-
       document.getElementById('nickname').value = playerData.nick;
       updateUI();
     };
-
-    function saveApiKey() {
-      const inputVal = document.getElementById('api-key-input').value.trim();
-      if (inputVal !== '') {
-        localStorage.setItem('gemini_api_key', inputVal);
-        apiKey = inputVal;
-        document.getElementById('api-modal').style.display = 'none';
-        updateUI();
-      } else {
-        alert("Por favor, cole uma API Key válida.");
-      }
-    }
-
-    function resetKey() {
-      localStorage.removeItem('gemini_api_key');
-      apiKey = '';
-      document.getElementById('api-key-input').value = '';
-      document.getElementById('api-modal').style.display = 'flex';
-    }
 
     function saveNick(val) {
       playerData.nick = val || 'Treinador';
@@ -546,6 +458,12 @@
     }
 
     async function analyzePet(base64Data) {
+      if (!apiKey || apiKey.trim() === '') {
+        document.getElementById('loading').style.display = 'none';
+        alert("Atenção: Para usar a IA, insira sua chave diretamente na variável 'apiKey' no topo do script do código HTML.");
+        return;
+      }
+
       const pureBase64 = base64Data.split(',')[1];
       
       const prompt = `Identifique o animal desta foto e defina a raridade dele.
@@ -564,92 +482,66 @@ Regras de Raridade:
 Se nao for animal: {"isAnimal": false}.`;
 
       try {
-        document.getElementById('loading').innerText = "Analisando chave...";
-        const modelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-        const modelsRes = await fetch(modelsUrl);
-        const modelsData = await modelsRes.json();
+        document.getElementById('loading').innerText = "Consultando o Google... aguarde!";
+        const generateUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-        if (modelsData.error) {
-          alert("Erro na chave da API: " + modelsData.error.message);
-          document.getElementById('loading').style.display = 'none';
+        const response = await fetch(generateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
+              ]
+            }]
+          })
+        });
+
+        const data = await response.json();
+        document.getElementById('loading').style.display = 'none';
+
+        if (data.error) {
+          alert("Erro na API: " + data.error.message);
           return;
         }
 
-        let candidateModels = [];
-        for (let m of modelsData.models) {
-          if (m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")) {
-            if (m.name.includes("flash")) {
-              candidateModels.unshift(m.name);
-            } else {
-              candidateModels.push(m.name);
-            }
-          }
-        }
+        if (data.candidates && data.candidates[0]) {
+          const textResponse = data.candidates[0].content.parts[0].text;
+          const cleanJson = textResponse.replace(/```json|```/g, '').trim();
+          const result = JSON.parse(cleanJson);
 
-        if (candidateModels.length === 0) {
-          alert("Erro: O Google não liberou NENHUM modelo compatível para a sua chave.");
-          document.getElementById('loading').style.display = 'none';
-          return;
-        }
+          if (result.isAnimal) {
+            const rarity = result.rarity || "Comum";
+            const rInfo = getRarityInfo(rarity);
 
-        let success = false;
-        let result = null;
-        let usedModel = "";
-
-        for (let modelName of candidateModels) {
-          try {
-            document.getElementById('loading').innerText = `Testando ${modelName.replace('models/', '')}...`;
-            const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
-
-            const response = await fetch(generateUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { text: prompt },
-                    { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
-                  ]
-                }]
-              })
+            playerData.captured.unshift({
+              name: result.name,
+              desc: result.desc,
+              rarity: rarity,
+              image: base64Data
             });
 
-            const data = await response.json();
+            let oldLevel = playerData.level;
+            recalculateStats();
+            saveGame();
 
-            if (!data.error && data.candidates && data.candidates[0]) {
-              const textResponse = data.candidates[0].content.parts[0].text;
-              const cleanJson = textResponse.replace(/```json|```/g, '').trim();
-              result = JSON.parse(cleanJson);
-              usedModel = modelName;
-              success = true;
-              break;
+            let levelUpMsg = "";
+            if (playerData.level > oldLevel) {
+              levelUpMsg = `\n🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`;
             }
-          } catch (e) {}
-        }
 
+            alert(`✨ Gotcha! Você capturou um ${result.name}!\n\nRaridade: ${rInfo.icon} ${rarity}\nXP Ganho: +${rInfo.xp}${levelUpMsg}`);
+          } else {
+            alert("Ops! A IA não identificou um animal nesta foto.");
+          }
+        }
+      } catch (err) {
         document.getElementById('loading').style.display = 'none';
-        document.getElementById('loading').innerText = "Consultando o Google... aguarde!";
-
-        if (!success || !result) {
-          alert("Erro: Nenhum dos modelos testados aceitou a requisição.");
-          return;
-        }
-
-        if (result.isAnimal) {
-          const rarity = result.rarity || "Comum";
-          const rInfo = getRarityInfo(rarity);
-
-          playerData.captured.unshift({
-            name: result.name,
-            desc: result.desc,
-            rarity: rarity,
-            image: base64Data
-          });
-
-          let oldLevel = playerData.level;
-          recalculateStats();
-          saveGame();
-
-          let levelUpMsg = "";
-          if (playerData.level > oldLevel) {
-            
+        alert("Erro de conexão. Tente enviar a foto novamente.");
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>
