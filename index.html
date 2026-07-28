@@ -183,7 +183,7 @@
   <div id="api-modal">
     <div class="modal-content">
       <h3>Bem-vindo ao Gotcha!</h3>
-      <p>Cole sua NOVA API Key do Google AI Studio abaixo:</p>
+      <p>Cole sua API Key do Google AI Studio abaixo:</p>
       <input type="password" id="api-key-input" placeholder="Cole sua API Key aqui...">
       <button onclick="saveApiKey()">Começar a Jogar</button>
     </div>
@@ -211,7 +211,7 @@
     <label for="camera-input" class="btn-capture">📸 Enviar ou Tirar Foto</label>
     <input type="file" id="camera-input" accept="image/*" onchange="handleImage(this)">
 
-    <div id="loading">Analisando imagem... aguarde!</div>
+    <div id="loading">Consultando o Google... aguarde!</div>
     
     <br>
     <button class="btn-reset-key" onclick="resetKey()">🔑 Trocar API Key</button>
@@ -316,34 +316,84 @@
       const pureBase64 = base64Data.split(',')[1];
       const prompt = "Identifique o animal desta foto. Responda APENAS em formato JSON valido: {\"isAnimal\": true, \"name\": \"Nome do Animal\", \"desc\": \"Frase curta sobre ele.\"}. Se nao for animal: {\"isAnimal\": false}.";
 
-      // Usando estritamente a v1 com o flash atual
-      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
       try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
-              ]
-            }]
-          })
-        });
+        // PASSO 1: Buscar lista de modelos disponíveis na chave
+        document.getElementById('loading').innerText = "Analisando chave...";
+        const modelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+        const modelsRes = await fetch(modelsUrl);
+        const modelsData = await modelsRes.json();
 
-        const data = await response.json();
-        document.getElementById('loading').style.display = 'none';
-
-        if (data.error) {
-          alert("Erro da API: " + data.error.message);
+        if (modelsData.error) {
+          alert("Erro na chave da API: " + modelsData.error.message);
+          document.getElementById('loading').style.display = 'none';
           return;
         }
 
-        const textResponse = data.candidates[0].content.parts[0].text;
-        const cleanJson = textResponse.replace(/```json|```/g, '').trim();
-        const result = JSON.parse(cleanJson);
+        // PASSO 2: Criar uma lista ordenada priorizando modelos Flash e 2.0 / 1.5
+        let candidateModels = [];
+        
+        for (let m of modelsData.models) {
+          if (m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")) {
+            if (m.name.includes("flash")) {
+              candidateModels.unshift(m.name); // Joga os flashs para o topo da fila
+            } else {
+              candidateModels.push(m.name);
+            }
+          }
+        }
+
+        if (candidateModels.length === 0) {
+          alert("Erro: O Google não liberou NENHUM modelo compatível para a sua chave.");
+          document.getElementById('loading').style.display = 'none';
+          return;
+        }
+
+        // PASSO 3: Loop de Tentativa (Fallback) - Testa um por um até o Google aceitar
+        let success = false;
+        let result = null;
+        let usedModel = "";
+
+        for (let modelName of candidateModels) {
+          try {
+            document.getElementById('loading').innerText = `Testando ${modelName.replace('models/', '')}...`;
+            const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
+
+            const response = await fetch(generateUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    { text: prompt },
+                    { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
+                  ]
+                }]
+              })
+            });
+
+            const data = await response.json();
+
+            // Se o Google não retornou erro de API, funcionou!
+            if (!data.error && data.candidates && data.candidates[0]) {
+              const textResponse = data.candidates[0].content.parts[0].text;
+              const cleanJson = textResponse.replace(/```json|```/g, '').trim();
+              result = JSON.parse(cleanJson);
+              usedModel = modelName;
+              success = true;
+              break; // Para o loop imediatamente pois encontramos um modelo funcional
+            }
+          } catch (e) {
+            // Se falhou, continua silenciosamente para o próximo modelo da lista
+          }
+        }
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('loading').innerText = "Consultando o Google... aguarde!";
+
+        if (!success || !result) {
+          alert("Erro: Nenhum dos modelos testados aceitou a requisição. Sua API Key pode estar restrita ou inativa.");
+          return;
+        }
 
         if (result.isAnimal) {
           playerData.xp += 50;
@@ -359,13 +409,14 @@
           });
 
           saveGame();
-          alert(`✨ Gotcha! Você capturou um ${result.name}!`);
+          alert(`✨ Gotcha! Você capturou um ${result.name}!\n\n(Modelo vencedor: ${usedModel})`);
         } else {
           alert("Ops! A IA não identificou um animal nesta foto.");
         }
 
       } catch (err) {
         document.getElementById('loading').style.display = 'none';
+        document.getElementById('loading').innerText = "Consultando o Google... aguarde!";
         alert("Erro de conexão. Tente enviar a foto novamente.");
         console.error(err);
       }
