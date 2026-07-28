@@ -285,7 +285,7 @@
     <div class="modal-content">
       <h3>Bem-vindo ao Gotcha!</h3>
       <p>Cole sua API Key do Google AI Studio abaixo:</p>
-      <input type="text" id="api-key-input" placeholder="Cole sua API Key aqui...">
+      <input type="text" id="api-key-input" placeholder="Ex: AIzaSy...">
       <button type="button" onclick="saveApiKey()">Começar a Jogar</button>
     </div>
   </div>
@@ -329,17 +329,28 @@
   </div>
 
   <script>
-    // SISTEMA BLINDADO CONTRA ERROS DE NAVEGADOR
+    // ----------------------------------------------------
+    // SISTEMA BLINDADO: Impede que o Save corrompido trave o app
+    // ----------------------------------------------------
     let apiKey = '';
     try {
       apiKey = localStorage.getItem('gemini_api_key') || '';
-    } catch(e) { console.warn("Bloqueio de leitura no navegador."); }
+    } catch(e) {}
 
     let playerData = { nick: 'Treinador', xp: 0, level: 1, captured: [] };
     try {
       let saved = localStorage.getItem('gotcha_player');
-      if (saved) playerData = JSON.parse(saved);
-    } catch(e) { console.warn("Bloqueio de leitura de save."); }
+      if (saved) {
+        let parsed = JSON.parse(saved);
+        // Garantindo que todos os campos existem, mesmo em saves antigos
+        if (parsed) {
+          playerData.nick = parsed.nick || 'Treinador';
+          playerData.xp = parsed.xp || 0;
+          playerData.level = parsed.level || 1;
+          playerData.captured = parsed.captured || []; // AQUI ESTAVA O TRAVAMENTO ANTERIOR!
+        }
+      }
+    } catch(e) {}
 
     const rarityMap = {
       "Comum": { icon: "⚪", css: "rarity-comum", xp: 50 },
@@ -375,68 +386,79 @@
 
     function recalculateStats() {
       let totalXp = 0;
-      playerData.captured.forEach(item => {
-        const rarity = item.rarity || "Comum";
-        const rInfo = getRarityInfo(rarity);
-        totalXp += rInfo.xp;
-      });
-      
+      if (playerData.captured && Array.isArray(playerData.captured)) {
+        playerData.captured.forEach(item => {
+          const rarity = item.rarity || "Comum";
+          const rInfo = getRarityInfo(rarity);
+          totalXp += rInfo.xp;
+        });
+      }
       playerData.xp = totalXp;
       playerData.level = Math.floor(totalXp / 100) + 1; 
     }
 
     window.onload = () => {
-      let hasChanges = false;
-      playerData.captured.forEach(item => {
-        if (!item.rarity || (item.name.toLowerCase().includes('papagaio') && item.rarity === 'Comum')) {
-          if (item.name.toLowerCase().includes('papagaio')) {
-            item.rarity = 'Rara';
-            hasChanges = true;
-          }
+      try {
+        let hasChanges = false;
+        if (playerData.captured && Array.isArray(playerData.captured)) {
+          playerData.captured.forEach(item => {
+            if (!item.rarity || (item.name.toLowerCase().includes('papagaio') && item.rarity === 'Comum')) {
+              if (item.name.toLowerCase().includes('papagaio')) {
+                item.rarity = 'Rara';
+                hasChanges = true;
+              }
+            }
+          });
         }
-      });
-      
-      recalculateStats();
-      if (hasChanges) saveGame();
+        
+        recalculateStats();
+        if (hasChanges) saveGame();
 
-      if (apiKey && apiKey.trim() !== '') {
-        document.getElementById('api-modal').style.display = 'none';
-      } else {
-        document.getElementById('api-modal').style.display = 'flex';
+        if (apiKey && apiKey.trim() !== '') {
+          document.getElementById('api-modal').style.display = 'none';
+        } else {
+          document.getElementById('api-modal').style.display = 'flex';
+        }
+
+        document.getElementById('nickname').value = playerData.nick || '';
+        updateUI();
+      } catch (err) {
+        console.error("Erro no carregamento", err);
       }
-
-      document.getElementById('nickname').value = playerData.nick;
-      updateUI();
     };
 
-    // FUNÇÃO DE SALVAR CHAVE TOTALMENTE BLINDADA
+    // FUNÇÃO REESCRITA PARA FECHAR A TELA ANTES DE QUALQUER OUTRA COISA
     function saveApiKey() {
-      const inputField = document.getElementById('api-key-input');
-      const inputVal = inputField.value.trim();
-      
-      if (inputVal !== '') {
-        apiKey = inputVal;
+      try {
+        const inputField = document.getElementById('api-key-input');
+        const inputVal = inputField.value.trim();
         
-        try {
-          localStorage.setItem('gemini_api_key', inputVal);
-        } catch (e) {
-          console.log("Navegador bloqueou salvar a chave. Continuando na memória.");
+        if (inputVal !== '') {
+          apiKey = inputVal;
+          
+          // Fecha a tela IMEDIATAMENTE (não espera o navegador salvar)
+          document.getElementById('api-modal').style.display = 'none';
+          inputField.blur(); 
+          
+          try {
+            localStorage.setItem('gemini_api_key', inputVal);
+          } catch (e) {
+            // Ignora erro de navegador embutido
+          }
+          
+          updateUI();
+        } else {
+          alert("Por favor, cole sua chave na caixa de texto.");
         }
-        
-        inputField.blur(); // Força o teclado de celular a fechar!
+      } catch (e) {
+        // Se der algum erro maluco, força o fechamento da tela
         document.getElementById('api-modal').style.display = 'none';
-        updateUI();
-      } else {
-        alert("Por favor, cole uma API Key válida.");
       }
     }
 
     function resetKey() {
       apiKey = '';
-      try {
-        localStorage.removeItem('gemini_api_key');
-      } catch(e) {}
-      
+      try { localStorage.removeItem('gemini_api_key'); } catch(e) {}
       document.getElementById('api-key-input').value = '';
       document.getElementById('api-modal').style.display = 'flex';
     }
@@ -449,9 +471,7 @@
     function saveGame() {
       try {
         localStorage.setItem('gotcha_player', JSON.stringify(playerData));
-      } catch(e) {
-        console.log("Navegador embutido bloqueou salvamento de progresso.");
-      }
+      } catch(e) {}
       updateUI();
     }
 
@@ -468,67 +488,73 @@
     }
 
     function updateUI() {
-      document.getElementById('level').innerText = playerData.level;
-      document.getElementById('xp').innerText = playerData.xp;
-      document.getElementById('captured-count').innerText = playerData.captured.length;
-      
-      const list = document.getElementById('cards-list');
-      list.innerHTML = '';
-      playerData.captured.forEach((item, index) => {
-        const rarity = item.rarity || "Comum";
-        const rInfo = getRarityInfo(rarity);
+      try {
+        document.getElementById('level').innerText = playerData.level;
+        document.getElementById('xp').innerText = playerData.xp;
         
-        list.innerHTML += `
-          <div class="card ${rInfo.css}">
-            <img src="${item.image}" alt="Pet">
-            <div style="flex: 1;">
-              <strong>${item.name}</strong><br>
-              <small>${item.desc}</small><br>
-              <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
-            </div>
-            <button class="btn-delete" onclick="deleteCard(${index})" title="Apagar captura">🗑️</button>
-          </div>
-        `;
-      });
-
-      const catContainer = document.getElementById('categories-container');
-      catContainer.innerHTML = '';
-
-      for (let [catName, animals] of Object.entries(pediaCategories)) {
-        let gridHtml = '';
+        const safeCaptured = Array.isArray(playerData.captured) ? playerData.captured : [];
+        document.getElementById('captured-count').innerText = safeCaptured.length;
         
-        animals.forEach(target => {
-          const found = playerData.captured.find(c => c.name.toLowerCase().includes(target.name.toLowerCase()));
+        const list = document.getElementById('cards-list');
+        list.innerHTML = '';
+        safeCaptured.forEach((item, index) => {
+          const rarity = item.rarity || "Comum";
+          const rInfo = getRarityInfo(rarity);
           
-          if (found) {
-            const rarity = found.rarity || target.defaultRarity;
-            const rInfo = getRarityInfo(rarity);
-            
-            gridHtml += `
-              <div class="species-item unlocked ${rInfo.css}">
-                <img src="${found.image}" class="species-img" alt="${target.name}">
-                <div class="species-name">${found.name}</div>
+          list.innerHTML += `
+            <div class="card ${rInfo.css}">
+              <img src="${item.image}" alt="Pet">
+              <div style="flex: 1;">
+                <strong>${item.name}</strong><br>
+                <small>${item.desc}</small><br>
                 <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
               </div>
-            `;
-          } else {
-            const rInfo = getRarityInfo(target.defaultRarity);
-            gridHtml += `
-              <div class="species-item">
-                <div class="species-silhouette">${target.icon}</div>
-                <div class="species-name">${target.name}</div>
-                <span class="rarity-tag">${rInfo.icon} ${target.defaultRarity}</span>
-              </div>
-            `;
-          }
+              <button class="btn-delete" onclick="deleteCard(${index})" title="Apagar captura">🗑️</button>
+            </div>
+          `;
         });
 
-        catContainer.innerHTML += `
-          <div class="category-box">
-            <div class="category-title">${catName}</div>
-            <div class="species-grid">${gridHtml}</div>
-          </div>
-        `;
+        const catContainer = document.getElementById('categories-container');
+        catContainer.innerHTML = '';
+
+        for (let [catName, animals] of Object.entries(pediaCategories)) {
+          let gridHtml = '';
+          
+          animals.forEach(target => {
+            const found = safeCaptured.find(c => c.name.toLowerCase().includes(target.name.toLowerCase()));
+            
+            if (found) {
+              const rarity = found.rarity || target.defaultRarity;
+              const rInfo = getRarityInfo(rarity);
+              
+              gridHtml += `
+                <div class="species-item unlocked ${rInfo.css}">
+                  <img src="${found.image}" class="species-img" alt="${target.name}">
+                  <div class="species-name">${found.name}</div>
+                  <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
+                </div>
+              `;
+            } else {
+              const rInfo = getRarityInfo(target.defaultRarity);
+              gridHtml += `
+                <div class="species-item">
+                  <div class="species-silhouette">${target.icon}</div>
+                  <div class="species-name">${target.name}</div>
+                  <span class="rarity-tag">${rInfo.icon} ${target.defaultRarity}</span>
+                </div>
+              `;
+            }
+          });
+
+          catContainer.innerHTML += `
+            <div class="category-box">
+              <div class="category-title">${catName}</div>
+              <div class="species-grid">${gridHtml}</div>
+            </div>
+          `;
+        }
+      } catch (err) {
+        console.error("Erro ao atualizar interface", err);
       }
     }
 
@@ -618,39 +644,4 @@ Se nao for animal: {"isAnimal": false}.`;
             document.getElementById('loading').innerText = `Analisando foto com a IA... aguarde!`;
             const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
 
-            const response = await fetch(generateUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { text: prompt },
-                    { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
-                  ]
-                }]
-              })
-            });
-
-            const data = await response.json();
-
-            if (!data.error && data.candidates && data.candidates[0]) {
-              const textResponse = data.candidates[0].content.parts[0].text;
-              const cleanJson = textResponse.replace(/```json|```/g, '').trim();
-              result = JSON.parse(cleanJson);
-              success = true;
-              break;
-            }
-          } catch (e) {
-            console.log("Tentando outro modelo...");
-          }
-        }
-
-        document.getElementById('loading').style.display = 'none';
-
-        if (!success || !result) {
-          alert("Erro: O servidor falhou ao analisar a foto.");
-          return;
-        }
-
-        if (result.isAnimal) {
-          c
+            con
