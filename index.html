@@ -6,6 +6,7 @@
   <title>Gotcha!</title>
   <link rel="manifest" href="/manifest.json">
   <style>
+    /* O CSS continua o mesmo */
     body {
       font-family: Arial, sans-serif;
       background-color: #222;
@@ -213,7 +214,6 @@
       font-weight: bold;
     }
 
-    /* Estilos do Guia de Espécies */
     .category-box {
       background: #2b2b2b;
       border-radius: 10px;
@@ -365,8 +365,21 @@
       ]
     };
 
+    // NOVA FUNÇÃO: Recalcula o XP exato baseado apenas nos cards que sobraram!
+    function recalculateStats() {
+      let totalXp = 0;
+      playerData.captured.forEach(item => {
+        const rarity = item.rarity || "Comum";
+        const rInfo = getRarityInfo(rarity);
+        totalXp += rInfo.xp;
+      });
+      
+      playerData.xp = totalXp;
+      // Calcula o nível: a cada 100 XP sobe 1 nível. Nível base é 1.
+      playerData.level = Math.floor(totalXp / 100) + 1; 
+    }
+
     window.onload = () => {
-      // Migração e correção automática de dados antigos
       let hasChanges = false;
       playerData.captured.forEach(item => {
         if (!item.rarity || (item.name.toLowerCase().includes('papagaio') && item.rarity === 'Comum')) {
@@ -376,6 +389,11 @@
           }
         }
       });
+      
+      // Força o recálculo logo ao abrir o app para limpar "XP Fantasma"
+      recalculateStats();
+      hasChanges = true; 
+
       if (hasChanges) {
         localStorage.setItem('gotcha_player', JSON.stringify(playerData));
       }
@@ -412,8 +430,9 @@
     }
 
     function deleteCard(index) {
-      if (confirm("Deseja apagar esta captura da sua coleção?")) {
+      if (confirm("Deseja apagar esta captura da sua coleção? O XP será descontado.")) {
         playerData.captured.splice(index, 1);
+        recalculateStats(); // Recalcula XP e Nível antes de salvar
         saveGame();
       }
     }
@@ -427,7 +446,6 @@
       document.getElementById('xp').innerText = playerData.xp;
       document.getElementById('captured-count').innerText = playerData.captured.length;
       
-      // Renderiza Coleção Recente
       const list = document.getElementById('cards-list');
       list.innerHTML = '';
       playerData.captured.forEach((item, index) => {
@@ -447,7 +465,6 @@
         `;
       });
 
-      // Renderiza Guia de Espécies
       const catContainer = document.getElementById('categories-container');
       catContainer.innerHTML = '';
 
@@ -612,13 +629,6 @@ Se nao for animal: {"isAnimal": false}.`;
           const rarity = result.rarity || "Comum";
           const rInfo = getRarityInfo(rarity);
 
-          playerData.xp += rInfo.xp;
-
-          if (playerData.xp >= playerData.level * 100) {
-            playerData.level += 1;
-            alert(`🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`);
-          }
-          
           playerData.captured.unshift({
             name: result.name,
             desc: result.desc,
@@ -626,19 +636,14 @@ Se nao for animal: {"isAnimal": false}.`;
             image: base64Data
           });
 
+          // Usando o recálculo ao invés de só somar
+          let oldLevel = playerData.level;
+          recalculateStats();
           saveGame();
-          alert(`✨ Gotcha! Você capturou um ${result.name}!\n\nRaridade: ${rInfo.icon} ${rarity}\nXP Ganho: +${rInfo.xp}`);
-        } else {
-          alert("Ops! A IA não identificou um animal nesta foto.");
-        }
 
-      } catch (err) {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('loading').innerText = "Consultando o Google... aguarde!";
-        alert("Erro de conexão. Tente enviar a foto novamente.");
-        console.error(err);
-      }
-    }
-  </script>
-</body>
-</html>
+          let levelUpMsg = "";
+          if (playerData.level > oldLevel) {
+            levelUpMsg = `\n🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`;
+          }
+
+          a
