@@ -285,7 +285,7 @@
     <div class="modal-content">
       <h3>Bem-vindo ao Gotcha!</h3>
       <p>Cole sua API Key do Google AI Studio abaixo:</p>
-      <input type="text" id="api-key-input" placeholder="Ex: AIzaSy...">
+      <input type="text" id="api-key-input" placeholder="Ex: AQ.Ab8RN6...">
       <button type="button" onclick="saveApiKey()">Começar a Jogar</button>
     </div>
   </div>
@@ -329,9 +329,6 @@
   </div>
 
   <script>
-    // ----------------------------------------------------
-    // SISTEMA BLINDADO: Impede que o Save corrompido trave o app
-    // ----------------------------------------------------
     let apiKey = '';
     try {
       apiKey = localStorage.getItem('gemini_api_key') || '';
@@ -342,12 +339,11 @@
       let saved = localStorage.getItem('gotcha_player');
       if (saved) {
         let parsed = JSON.parse(saved);
-        // Garantindo que todos os campos existem, mesmo em saves antigos
         if (parsed) {
           playerData.nick = parsed.nick || 'Treinador';
           playerData.xp = parsed.xp || 0;
           playerData.level = parsed.level || 1;
-          playerData.captured = parsed.captured || []; // AQUI ESTAVA O TRAVAMENTO ANTERIOR!
+          playerData.captured = parsed.captured || []; 
         }
       }
     } catch(e) {}
@@ -422,36 +418,24 @@
 
         document.getElementById('nickname').value = playerData.nick || '';
         updateUI();
-      } catch (err) {
-        console.error("Erro no carregamento", err);
-      }
+      } catch (err) {}
     };
 
-    // FUNÇÃO REESCRITA PARA FECHAR A TELA ANTES DE QUALQUER OUTRA COISA
     function saveApiKey() {
+      // Deixamos a função original aqui para manter a compatibilidade
       try {
         const inputField = document.getElementById('api-key-input');
         const inputVal = inputField.value.trim();
-        
         if (inputVal !== '') {
           apiKey = inputVal;
-          
-          // Fecha a tela IMEDIATAMENTE (não espera o navegador salvar)
           document.getElementById('api-modal').style.display = 'none';
           inputField.blur(); 
-          
-          try {
-            localStorage.setItem('gemini_api_key', inputVal);
-          } catch (e) {
-            // Ignora erro de navegador embutido
-          }
-          
+          try { localStorage.setItem('gemini_api_key', inputVal); } catch (e) {}
           updateUI();
         } else {
           alert("Por favor, cole sua chave na caixa de texto.");
         }
       } catch (e) {
-        // Se der algum erro maluco, força o fechamento da tela
         document.getElementById('api-modal').style.display = 'none';
       }
     }
@@ -469,9 +453,7 @@
     }
 
     function saveGame() {
-      try {
-        localStorage.setItem('gotcha_player', JSON.stringify(playerData));
-      } catch(e) {}
+      try { localStorage.setItem('gotcha_player', JSON.stringify(playerData)); } catch(e) {}
       updateUI();
     }
 
@@ -519,7 +501,6 @@
 
         for (let [catName, animals] of Object.entries(pediaCategories)) {
           let gridHtml = '';
-          
           animals.forEach(target => {
             const found = safeCaptured.find(c => c.name.toLowerCase().includes(target.name.toLowerCase()));
             
@@ -545,7 +526,6 @@
               `;
             }
           });
-
           catContainer.innerHTML += `
             <div class="category-box">
               <div class="category-title">${catName}</div>
@@ -553,14 +533,11 @@
             </div>
           `;
         }
-      } catch (err) {
-        console.error("Erro ao atualizar interface", err);
-      }
+      } catch (err) {}
     }
 
     function handleImage(input) {
       if (!input.files || !input.files[0]) return;
-      
       document.getElementById('loading').style.display = 'block';
       const file = input.files[0];
       const reader = new FileReader();
@@ -579,7 +556,6 @@
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
           const resizedBase64 = canvas.toDataURL('image/jpeg', 0.6);
-          
           analyzePet(resizedBase64);
         };
         img.src = e.result || e.target.result;
@@ -589,7 +565,6 @@
 
     async function analyzePet(base64Data) {
       const pureBase64 = base64Data.split(',')[1];
-      
       const prompt = `Identifique o animal desta foto e defina a raridade dele.
 Responda APENAS em JSON valido:
 {"isAnimal": true, "name": "Nome do Animal", "desc": "Frase curta sobre ele.", "rarity": "Comum"}
@@ -644,4 +619,22 @@ Se nao for animal: {"isAnimal": false}.`;
             document.getElementById('loading').innerText = `Analisando foto com a IA... aguarde!`;
             const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
 
-            con
+            const response = await fetch(generateUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    { text: prompt },
+                    { inline_data: { mime_type: "image/jpeg", data: pureBase64 } }
+                  ]
+                }]
+              })
+            });
+
+            const data = await response.json();
+
+            if (!data.error && data.candidates && data.candidates[0]) {
+              const textResponse = data.candidates[0].content.parts[0].text;
+              const cleanJson = textResponse.replace(/```json|```/g, '').trim();
+              result = JSON.pars
