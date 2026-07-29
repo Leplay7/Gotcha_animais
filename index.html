@@ -6,252 +6,307 @@
   <title>Gotcha!</title>
   <link rel="manifest" href="/manifest.json">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #222;
-      color: #fff;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
+    body { font-family: Arial, sans-serif; background-color: #222; color: #fff; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+    .app-logo { background-color: #FACC15; width: 75px; height: 75px; border-radius: 16px; display: flex; justify-content: center; align-items: center; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    .app-logo svg { fill: #fff; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8)); width: 45px; height: 45px; }
+    .top-bar { width: 100%; max-width: 400px; display: flex; justify-content: space-between; align-items: center; background: #333; padding: 10px 15px; border-radius: 10px; box-sizing: border-box; margin-bottom: 15px; }
+    .nick-container { display: flex; align-items: center; gap: 5px; }
+    .nick-input { background: #444; border: 1px solid #555; color: #ffd700; padding: 4px 8px; border-radius: 5px; font-weight: bold; width: 100px; }
+    .stats { font-size: 0.9em; color: #ddd; }
+    #api-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+    .modal-content { background: #fff; color: #000; padding: 20px; border-radius: 12px; text-align: center; max-width: 320px; box-sizing: border-box; }
+    .modal-content input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 0.9em; }
+    .modal-content button { background: #FACC15; border: none; padding: 12px 20px; font-weight: bold; border-radius: 5px; cursor: pointer; width: 100%; font-size: 1em; }
+    .camera-area { width: 100%; max-width: 400px; text-align: center; background: #333; padding: 20px; border-radius: 12px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; }
+    input[type="file"] { display: none; }
+    .btn-capture { background: #FACC15; color: #000; padding: 12px 20px; font-size: 1em; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; display: inline-block; margin-top: 10px; }
+    .btn-reset-key { background: transparent; border: 1px solid #777; color: #aaa; padding: 5px 10px; font-size: 0.8em; border-radius: 5px; margin-top: 15px; cursor: pointer; }
+    #loading { margin-top: 15px; color: #FACC15; display: none; }
+    .section-container { width: 100%; max-width: 400px; margin-top: 20px; }
+    .card { background: #444; border-radius: 8px; padding: 10px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
+    .card img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; }
+    .btn-delete { background: none; border: none; color: #ef4444; font-size: 1.2em; cursor: pointer; padding: 5px; }
     
-    .app-logo {
-      background-color: #FACC15;
-      width: 75px;
-      height: 75px;
-      border-radius: 16px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin-bottom: 15px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-    }
-
-    .app-logo svg {
-      fill: #fff;
-      filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));
-      width: 45px;
-      height: 45px;
-    }
-
-    .top-bar {
-      width: 100%;
-      max-width: 400px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #333;
-      padding: 10px 15px;
-      border-radius: 10px;
-      box-sizing: border-box;
-      margin-bottom: 15px;
-    }
-
-    .nick-container {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .nick-input {
-      background: #444;
-      border: 1px solid #555;
-      color: #ffd700;
-      padding: 4px 8px;
-      border-radius: 5px;
-      font-weight: bold;
-      width: 100px;
-    }
-
-    .stats {
-      font-size: 0.9em;
-      color: #ddd;
-    }
-
-    #api-modal {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.85);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-    }
-
-    .modal-content {
-      background: #fff;
-      color: #000;
-      padding: 20px;
-      border-radius: 12px;
-      text-align: center;
-      max-width: 320px;
-      box-sizing: border-box;
-    }
-
-    .modal-content input {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      box-sizing: border-box;
-      font-size: 0.9em;
-    }
-
-    .modal-content button {
-      background: #FACC15;
-      border: none;
-      padding: 12px 20px;
-      font-weight: bold;
-      border-radius: 5px;
-      cursor: pointer;
-      width: 100%;
-      font-size: 1em;
-    }
-
-    .camera-area {
-      width: 100%;
-      max-width: 400px;
-      text-align: center;
-      background: #333;
-      padding: 20px;
-      border-radius: 12px;
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    input[type="file"] {
-      display: none;
-    }
-
-    .btn-capture {
-      background: #FACC15;
-      color: #000;
-      padding: 12px 20px;
-      font-size: 1em;
-      font-weight: bold;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      display: inline-block;
-      margin-top: 10px;
-    }
-
-    .btn-reset-key {
-      background: transparent;
-      border: 1px solid #777;
-      color: #aaa;
-      padding: 5px 10px;
-      font-size: 0.8em;
-      border-radius: 5px;
-      margin-top: 15px;
-      cursor: pointer;
-    }
-
-    #loading {
-      margin-top: 15px;
-      color: #FACC15;
-      display: none;
-    }
-
-    .section-container {
-      width: 100%;
-      max-width: 400px;
-      margin-top: 20px;
-    }
-
-    .card {
-      background: #444;
-      border-radius: 8px;
-      padding: 10px;
-      margin-bottom: 10px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .card img {
-      width: 60px;
-      height: 60px;
-      object-fit: cover;
-      border-radius: 6px;
-    }
-
-    .btn-delete {
-      background: none;
-      border: none;
-      color: #ef4444;
-      font-size: 1.2em;
-      cursor: pointer;
-      padding: 5px;
-    }
-
     @keyframes rainbow-border {
-      0% { border-color: #ef4444; }
-      20% { border-color: #f97316; }
-      40% { border-color: #eab308; }
-      60% { border-color: #22c55e; }
-      80% { border-color: #3b82f6; }
-      100% { border-color: #a855f7; }
+      0% { border-color: #ef4444; } 20% { border-color: #f97316; }
+      40% { border-color: #eab308; } 60% { border-color: #22c55e; }
+      80% { border-color: #3b82f6; } 100% { border-color: #a855f7; }
     }
-
     .rarity-comum { border: 2px solid #aaaaaa !important; }
     .rarity-rara { border: 2px solid #3b82f6 !important; box-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
     .rarity-epico { border: 2px solid #a855f7 !important; box-shadow: 0 0 8px rgba(168, 85, 247, 0.5); }
     .rarity-mitico { border: 2px solid #ef4444 !important; box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
     .rarity-lendario { border: 2px solid #eab308 !important; box-shadow: 0 0 10px rgba(234, 179, 8, 0.7); }
     .rarity-super-lendario { border: 2px solid #ef4444 !important; animation: rainbow-border 2.5s linear infinite; }
+    .rarity-tag { font-size: 0.7em; padding: 2px 6px; border-radius: 4px; background: #111; display: inline-block; margin-top: 3px; font-weight: bold; }
+    .category-box { background: #2b2b2b; border-radius: 10px; padding: 12px; margin-bottom: 15px; border: 1px solid #444; }
+    .category-title { font-size: 1.05em; color: #FACC15; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px; }
+    .species-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .species-item { background: #1a1a1a; border-radius: 8px; padding: 8px; text-align: center; border: 1px dashed #555; }
+    .species-item.unlocked { background: #333; }
+    .species-silhouette { font-size: 2em; filter: grayscale(1) brightness(0.3); margin-bottom: 4px; }
+    .species-img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; margin-bottom: 4px; }
+    .species-name { font-size: 0.75em; color: #aaa; word-break: break-word; }
+    .species-item.unlocked .species-name { color: #fff; font-weight: bold; }
+  </style>
+</head>
+<body>
 
-    .rarity-tag {
-      font-size: 0.7em;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: #111;
-      display: inline-block;
-      margin-top: 3px;
-      font-weight: bold;
+  <div id="api-modal">
+    <div class="modal-content">
+      <h3>Bem-vindo ao Gotcha!</h3>
+      <p>Cole sua API Key do Google AI Studio abaixo:</p>
+      <input type="text" id="api-key-input" placeholder="Ex: AQ.Ab8RN6...">
+      <button type="button" onclick="salvarChaveForcado()">Começar a Jogar</button>
+    </div>
+  </div>
+
+  <div class="top-bar">
+    <div class="nick-container">
+      🎮 <input type="text" id="nickname" class="nick-input" placeholder="Seu Nick" onchange="saveNick(this.value)">
+    </div>
+    <div class="stats">
+      Nível: <span id="level">1</span> | Lvl XP: <span id="xp">0</span>
+    </div>
+  </div>
+
+  <div class="camera-area">
+    <div class="app-logo">
+      <svg viewBox="0 0 24 24"><path d="M23.643 4.937c-.835.37-1.732.62-2.675.733.962-.576 1.7-1.49 2.048-2.578-.9.534-1.897.922-2.958 1.13-.85-.904-2.06-1.47-3.4-1.47-2.572 0-4.658 2.086-4.658 4.66 0 .364.042.718.12 1.06-3.873-.195-7.304-2.05-9.602-4.868-.4.69-.63 1.49-.63 2.342 0 1.616.823 3.043 2.072 3.878-.764-.025-1.482-.234-2.11-.583v.06c0 2.257 1.605 4.14 3.737 4.568-.392.106-.803.162-1.227.162-.3 0-.593-.028-.877-.082.593 1.85 2.313 3.198 4.352 3.234-1.595 1.25-3.604 1.995-5.786 1.995-.376 0-.747-.022-1.112-.065 2.062 1.323 4.51 2.093 7.14 2.093 8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602.91-.658 1.7-1.477 2.323-2.41z"></path></svg>
+    </div>
+
+    <h2>Gotcha!</h2>
+    <p>Tire ou escolha uma foto do seu pet para capturar!</p>
+    
+    <label for="camera-input" class="btn-capture">📸 Enviar ou Tirar Foto</label>
+    <input type="file" id="camera-input" accept="image/*" onchange="handleImage(this)">
+
+    <div id="loading">Consultando o Google... aguarde!</div>
+    <br>
+    <button class="btn-reset-key" onclick="resetKey()">🔑 Trocar API Key</button>
+  </div>
+
+  <div class="section-container">
+    <h3>📖 Guia de Espécies (Para Fotografar)</h3>
+    <div id="categories-container" style="margin-top: 10px;"></div>
+  </div>
+
+  <div class="section-container">
+    <h3>Sua Coleção Recente (<span id="captured-count">0</span>)</h3>
+    <div id="cards-list"></div>
+  </div>
+
+  <script>
+    // --- FUNÇÃO DO BOTÃO NUCLEAR ---
+    function salvarChaveForcado() {
+      var key = document.getElementById('api-key-input').value.trim();
+      if(key !== '') {
+        try { localStorage.setItem('gemini_api_key', key); } catch(e){}
+        document.getElementById('api-modal').style.display = 'none';
+        document.getElementById('api-key-input').blur();
+        window.location.reload(true);
+      } else {
+        alert('Por favor, cole sua chave na caixa de texto.');
+      }
     }
 
-    .category-box {
-      background: #2b2b2b;
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 15px;
-      border: 1px solid #444;
+    let apiKey = '';
+    try { apiKey = localStorage.getItem('gemini_api_key') || ''; } catch(e) {}
+
+    let playerData = { nick: 'Treinador', xp: 0, level: 1, captured: [] };
+    try {
+      let saved = localStorage.getItem('gotcha_player');
+      if (saved) {
+        let parsed = JSON.parse(saved);
+        if (parsed) {
+          playerData.nick = parsed.nick || 'Treinador';
+          playerData.xp = parsed.xp || 0;
+          playerData.level = parsed.level || 1;
+          playerData.captured = parsed.captured || []; 
+        }
+      }
+    } catch(e) {}
+
+    const rarityMap = {
+      "Comum": { icon: "⚪", css: "rarity-comum", xp: 50 },
+      "Rara": { icon: "🔵", css: "rarity-rara", xp: 100 },
+      "Épico": { icon: "🟣", css: "rarity-epico", xp: 200 },
+      "Mítico": { icon: "🔴", css: "rarity-mitico", xp: 350 },
+      "Lendário": { icon: "🟡", css: "rarity-lendario", xp: 500 },
+      "Super Lendário": { icon: "🌈", css: "rarity-super-lendario", xp: 1000 }
+    };
+
+    const pediaCategories = {
+      "🦅 Aves": [
+        { name: "Papagaio", icon: "🦜", defaultRarity: "Rara" },
+        { name: "Arara", icon: "🦚", defaultRarity: "Épico" },
+        { name: "Pato", icon: "🦆", defaultRarity: "Comum" }
+      ],
+      "🦎 Répteis": [
+        { name: "Tartaruga", icon: "🐢", defaultRarity: "Rara" },
+        { name: "Iguana", icon: "🐊", defaultRarity: "Épico" },
+        { name: "Cobra", icon: "🐍", defaultRarity: "Épico" }
+      ],
+      "🌊 Aquáticos": [
+        { name: "Peixe", icon: "🐠", defaultRarity: "Comum" },
+        { name: "Golfinho", icon: "🐬", defaultRarity: "Mítico" },
+        { name: "Baleia", icon: "🐋", defaultRarity: "Lendário" }
+      ],
+      "🐾 Mamíferos": [
+        { name: "Cachorro", icon: "🐶", defaultRarity: "Comum" },
+        { name: "Gato", icon: "🐱", defaultRarity: "Comum" },
+        { name: "Coelho", icon: "🐰", defaultRarity: "Comum" }
+      ]
+    };
+
+    function recalculateStats() {
+      let totalXp = 0;
+      if (playerData.captured && Array.isArray(playerData.captured)) {
+        playerData.captured.forEach(item => {
+          const rarity = item.rarity || "Comum";
+          totalXp += (rarityMap[rarity] || rarityMap["Comum"]).xp;
+        });
+      }
+      playerData.xp = totalXp;
+      playerData.level = Math.floor(totalXp / 100) + 1; 
     }
 
-    .category-title {
-      font-size: 1.05em;
-      color: #FACC15;
-      margin-bottom: 10px;
-      border-bottom: 1px solid #444;
-      padding-bottom: 5px;
+    window.onload = () => {
+      try {
+        let hasChanges = false;
+        if (playerData.captured && Array.isArray(playerData.captured)) {
+          playerData.captured.forEach(item => {
+            if (!item.rarity || (item.name.toLowerCase().includes('papagaio') && item.rarity === 'Comum')) {
+              item.rarity = 'Rara';
+              hasChanges = true;
+            }
+          });
+        }
+        
+        recalculateStats();
+        if (hasChanges) saveGame();
+
+        if (apiKey && apiKey.trim() !== '') {
+          document.getElementById('api-modal').style.display = 'none';
+        } else {
+          document.getElementById('api-modal').style.display = 'flex';
+        }
+
+        document.getElementById('nickname').value = playerData.nick || '';
+        updateUI();
+      } catch (err) {
+        console.log("Erro no onload:", err);
+      }
+    };
+
+    function resetKey() {
+      apiKey = '';
+      try { localStorage.removeItem('gemini_api_key'); } catch(e) {}
+      document.getElementById('api-key-input').value = '';
+      document.getElementById('api-modal').style.display = 'flex';
     }
 
-    .species-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+    function saveNick(val) {
+      playerData.nick = val || 'Treinador';
+      saveGame();
     }
 
-    .species-item {
-      background: #1a1a1a;
-      border-radius: 8px;
-      padding: 8px;
-      text-align: center;
-      border: 1px dashed #555;
+    function saveGame() {
+      try { localStorage.setItem('gotcha_player', JSON.stringify(playerData)); } catch(e) {}
+      updateUI();
     }
 
-    .species-item.unlocked {
-      background: #333;
+    function deleteCard(index) {
+      if (confirm("Deseja apagar esta captura? O XP será descontado.")) {
+        playerData.captured.splice(index, 1);
+        recalculateStats();
+        saveGame();
+      }
     }
 
-    .species-silhouette {
-      font-size: 2em;
-      filter: grayscale(1) brightness(0.3);
+    function getRarityInfo(rarityName) {
+      return rarityMap[rarityName] || rarityMap["Comum"];
+    }
+
+    function updateUI() {
+      try {
+        document.getElementById('level').innerText = playerData.level;
+        document.getElementById('xp').innerText = playerData.xp;
+        
+        const safeCaptured = Array.isArray(playerData.captured) ? playerData.captured : [];
+        document.getElementById('captured-count').innerText = safeCaptured.length;
+        
+        const list = document.getElementById('cards-list');
+        list.innerHTML = '';
+        safeCaptured.forEach((item, index) => {
+          const rarity = item.rarity || "Comum";
+          const rInfo = getRarityInfo(rarity);
+          
+          list.innerHTML += `
+            <div class="card ${rInfo.css}">
+              <img src="${item.image}" alt="Pet">
+              <div style="flex: 1;">
+                <strong>${item.name}</strong><br>
+                <small>${item.desc}</small><br>
+                <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
+              </div>
+              <button class="btn-delete" onclick="deleteCard(${index})" title="Apagar">🗑️</button>
+            </div>
+          `;
+        });
+
+        const catContainer = document.getElementById('categories-container');
+        catContainer.innerHTML = '';
+
+        for (let [catName, animals] of Object.entries(pediaCategories)) {
+          let gridHtml = '';
+          animals.forEach(target => {
+            const found = safeCaptured.find(c => c.name.toLowerCase().includes(target.name.toLowerCase()));
+            
+            if (found) {
+              const rarity = found.rarity || target.defaultRarity;
+              const rInfo = getRarityInfo(rarity);
+              gridHtml += `
+                <div class="species-item unlocked ${rInfo.css}">
+                  <img src="${found.image}" class="species-img" alt="${target.name}">
+                  <div class="species-name">${found.name}</div>
+                  <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
+                </div>
+              `;
+            } else {
+              const rInfo = getRarityInfo(target.defaultRarity);
+              gridHtml += `
+                <div class="species-item">
+                  <div class="species-silhouette">${target.icon}</div>
+                  <div class="species-name">${target.name}</div>
+                  <span class="rarity-tag">${rInfo.icon} ${target.defaultRarity}</span>
+                </div>
+              `;
+            }
+          });
+          catContainer.innerHTML += `<div class="category-box"><div class="category-title">${catName}</div><div class="species-grid">${gridHtml}</div></div>`;
+        }
+      } catch (err) {}
+    }
+
+    function handleImage(input) {
+      if (!input.files || !input.files[0]) return;
+      document.getElementById('loading').style.display = 'block';
+      const file = input.files[0];
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 600;
+          const scaleSize = MAX_WIDTH / img.width;
+          
+          canvas.width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
+          canvas.height = (img.width > MAX_WIDTH) ? (img.height * scaleSize) : img.height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          analyzePet(canvas.toData
     
