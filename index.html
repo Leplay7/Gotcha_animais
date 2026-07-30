@@ -281,7 +281,7 @@
       let currentKey = getApiKey();
       if (!currentKey || currentKey.trim() === '') {
         document.getElementById('api-modal').style.display = 'flex';
-        input.value = ''; // Limpa para permitir nova tentativa
+        input.value = ''; 
         return;
       }
 
@@ -317,90 +317,72 @@
       try {
         document.getElementById('loading').style.display = 'block';
         
-        // Atendendo ao seu pedido: Tenta o Gemini 3.5 primeiro. 
-        // Coloquei o 1.5-flash como segurança na fila, caso o Google bloqueie o 3.5.
-        let candidateModels = ["gemini-3.5", "gemini-1.5-flash", "gemini-2.0-flash"];
-        let success = false;
-        let result = null;
-        let lastError = "";
+        // Versão direta e sem frescuras: usa o gemini-1.5-flash (O modelo oficial gratuito mais rápido)
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKeyUsed.trim()}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { 
+                  inlineData: { 
+                    mimeType: "image/jpeg", 
+                    data: pureBase64 
+                  } 
+                }
+              ]
+            }]
+          })
+        });
 
-        for (let modelName of candidateModels) {
-          try {
-            // Requisição usando a API v1 e o formato corrigido de imagem (inlineData / mimeType)
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKeyUsed.trim()}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { text: prompt },
-                    { 
-                      inlineData: { 
-                        mimeType: "image/jpeg", 
-                        data: pureBase64 
-                      } 
-                    }
-                  ]
-                }]
-              })
-            });
-
-            const data = await response.json();
-
-            if (data.error) {
-              lastError = data.error.message || JSON.stringify(data.error);
-              continue; // Tenta o próximo modelo se esse der erro
-            }
-
-            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-              const textResponse = data.candidates[0].content.parts[0].text;
-              const cleanJson = textResponse.replace(/```json|```/g, '').trim();
-              result = JSON.parse(cleanJson);
-              success = true;
-              break;
-            }
-          } catch (e) {
-            lastError = e.message;
-          }
-        }
-
+        const data = await response.json();
         document.getElementById('loading').style.display = 'none';
 
-        if (!success || !result) {
-          alert("Resposta do Google:\n" + (lastError || "Não foi possível analisar a foto."));
+        // Se a API retornar aquele erro de Quota novamente, ele avisa bonitinho.
+        if (data.error) {
+          alert("Erro da API do Google:\n" + data.error.message);
           return;
         }
 
-        if (result.isAnimal) {
-          const rarity = result.rarity || "Comum";
-          const rInfo = getRarityInfo(rarity);
+        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+          const textResponse = data.candidates[0].content.parts[0].text;
+          const cleanJson = textResponse.replace(/```json|```/g, '').trim();
+          const result = JSON.parse(cleanJson);
 
-          if (!Array.isArray(playerData.captured)) playerData.captured = [];
-          
-          playerData.captured.unshift({
-            name: result.name,
-            desc: result.desc,
-            rarity: rarity,
-            image: base64Data
-          });
+          if (result.isAnimal) {
+            const rarity = result.rarity || "Comum";
+            const rInfo = getRarityInfo(rarity);
 
-          let oldLevel = playerData.level;
-          recalculateStats();
-          saveGame();
+            if (!Array.isArray(playerData.captured)) playerData.captured = [];
+            
+            playerData.captured.unshift({
+              name: result.name,
+              desc: result.desc,
+              rarity: rarity,
+              image: base64Data
+            });
 
-          let levelUpMsg = "";
-          if (playerData.level > oldLevel) {
-            levelUpMsg = `\n🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`;
+            let oldLevel = playerData.level;
+            recalculateStats();
+            saveGame();
+
+            let levelUpMsg = "";
+            if (playerData.level > oldLevel) {
+              levelUpMsg = `\n🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`;
+            }
+
+            alert(`✨ Gotcha! Você capturou um ${result.name}!\n\nRaridade: ${rInfo.icon} ${rarity}\nXP Ganho: +${rInfo.xp}${levelUpMsg}`);
+          } else {
+            alert("Ops! A IA não identificou um animal nesta foto.");
           }
-
-          alert(`✨ Gotcha! Você capturou um ${result.name}!\n\nRaridade: ${rInfo.icon} ${rarity}\nXP Ganho: +${rInfo.xp}${levelUpMsg}`);
         } else {
-          alert("Ops! A IA não identificou um animal nesta foto.");
+          alert("O Google não conseguiu analisar a imagem desta vez.");
         }
 
       } catch (err) {
         document.getElementById('loading').style.display = 'none';
-        alert("Erro no navegador: " + err.message);
+        alert("Erro ao processar: " + err.message);
       }
     }
   </script>
