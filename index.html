@@ -7,6 +7,7 @@
   <link rel="manifest" href="/manifest.json">
   <style>
     body { font-family: Arial, sans-serif; background-color: #222; color: #fff; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+    #debug-error { display: none; width: 100%; max-width: 400px; background: #ef4444; color: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; box-sizing: border-box; word-break: break-word; border: 2px solid #991b1b; }
     .app-logo { background-color: #FACC15; width: 75px; height: 75px; border-radius: 16px; display: flex; justify-content: center; align-items: center; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
     .app-logo svg { fill: #fff; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8)); width: 45px; height: 45px; }
     .top-bar { width: 100%; max-width: 400px; display: flex; justify-content: space-between; align-items: center; background: #333; padding: 10px 15px; border-radius: 10px; box-sizing: border-box; margin-bottom: 15px; }
@@ -27,11 +28,7 @@
     .card img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; }
     .btn-delete { background: none; border: none; color: #ef4444; font-size: 1.2em; cursor: pointer; padding: 5px; }
     
-    @keyframes rainbow-border {
-      0% { border-color: #ef4444; } 20% { border-color: #f97316; }
-      40% { border-color: #eab308; } 60% { border-color: #22c55e; }
-      80% { border-color: #3b82f6; } 100% { border-color: #a855f7; }
-    }
+    @keyframes rainbow-border { 0% { border-color: #ef4444; } 20% { border-color: #f97316; } 40% { border-color: #eab308; } 60% { border-color: #22c55e; } 80% { border-color: #3b82f6; } 100% { border-color: #a855f7; } }
     .rarity-comum { border: 2px solid #aaaaaa !important; }
     .rarity-rara { border: 2px solid #3b82f6 !important; box-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
     .rarity-epico { border: 2px solid #a855f7 !important; box-shadow: 0 0 8px rgba(168, 85, 247, 0.5); }
@@ -48,9 +45,25 @@
     .species-img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; margin-bottom: 4px; }
     .species-name { font-size: 0.75em; color: #aaa; word-break: break-word; }
     .species-item.unlocked .species-name { color: #fff; font-weight: bold; }
+    .btn-hard-reset { background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 8px; font-size: 0.8em; border-radius: 5px; margin-top: 30px; cursor: pointer; width: 100%; max-width: 400px; }
   </style>
+
+  <!-- ESSE SCRIPT CAPTURA QUALQUER ERRO INVISÍVEL E MOSTRA NA TELA -->
+  <script>
+    window.onerror = function(msg, url, line) {
+      var errBox = document.getElementById('debug-error');
+      if(errBox) {
+        errBox.style.display = 'block';
+        errBox.innerHTML = "🚨 <b>Ops! O código quebrou:</b><br><br>Erro: " + msg + "<br><br>Linha do erro: " + line + "<br><br>Tire um print dessa caixa vermelha e mande para a IA!";
+      }
+      return false;
+    };
+  </script>
 </head>
 <body>
+
+  <!-- CAIXA DE ERRO (Só aparece se algo der errado) -->
+  <div id="debug-error"></div>
 
   <!-- TELA DA API KEY -->
   <div id="api-modal">
@@ -98,6 +111,8 @@
     <div id="cards-list"></div>
   </div>
 
+  <button class="btn-hard-reset" onclick="hardResetGame()">🚨 O jogo bugou? Clique aqui para Resetar Tudo</button>
+
   <script>
     // --- FUNÇÕES DA API KEY ---
     function salvarChaveForcado() {
@@ -121,8 +136,20 @@
       try { return localStorage.getItem('gemini_api_key') || ''; } catch(e) { return ''; }
     }
 
-    // --- CARREGAMENTO DO SAVE BLINDADO CONTRA ERROS ---
+    // --- FUNÇÃO DE EMERGÊNCIA ---
+    function hardResetGame() {
+      if(confirm("ATENÇÃO: Isso vai apagar TODO o seu progresso, animais e resetar o jogo do zero. Deseja continuar?")) {
+        try {
+          localStorage.removeItem('gotcha_player');
+          localStorage.removeItem('gemini_api_key');
+        } catch(e) {}
+        location.reload();
+      }
+    }
+
+    // --- CARREGAMENTO DO SAVE ---
     let playerData = { nick: 'Treinador', xp: 0, level: 1, captured: [] };
+    
     try {
       let saved = localStorage.getItem('gotcha_player');
       if (saved) {
@@ -135,10 +162,9 @@
         }
       }
     } catch(e) {
-      console.log("Aviso: Save antigo ignorado devido a erro de formatação.");
+      console.log("Erro ao carregar o save. Usando dados novos.");
     }
 
-    // --- DADOS DO JOGO ---
     const rarityMap = {
       "Comum": { icon: "⚪", css: "rarity-comum", xp: 50 },
       "Rara": { icon: "🔵", css: "rarity-rara", xp: 100 },
@@ -173,27 +199,31 @@
 
     function recalculateStats() {
       let totalXp = 0;
-      if (playerData.captured && Array.isArray(playerData.captured)) {
+      if (Array.isArray(playerData.captured)) {
         playerData.captured.forEach(item => {
           if(!item) return;
           const rarity = item.rarity || "Comum";
-          totalXp += (rarityMap[rarity] || rarityMap["Comum"]).xp;
+          const info = rarityMap[rarity] || rarityMap["Comum"];
+          totalXp += info.xp;
         });
       }
       playerData.xp = totalXp;
       playerData.level = Math.floor(totalXp / 100) + 1; 
     }
 
-    window.onload = () => {
+    // Inicialização Protegida
+    document.addEventListener('DOMContentLoaded', () => {
       try {
         recalculateStats();
-        // Garante que o nick não fique vazio
-        document.getElementById('nickname').value = playerData.nick === 'Treinador' ? '' : playerData.nick;
+        let nickField = document.getElementById('nickname');
+        if(nickField) {
+          nickField.value = playerData.nick === 'Treinador' ? '' : playerData.nick;
+        }
         updateUI();
       } catch (err) {
-        console.error("Erro fatal ao carregar a página: ", err);
+        throw err; // Força a tela de erro vermelha aparecer se quebrar aqui
       }
-    };
+    });
 
     function saveNick(val) {
       playerData.nick = val || 'Treinador';
@@ -217,72 +247,67 @@
       return rarityMap[rarityName] || rarityMap["Comum"];
     }
 
-    // --- RENDERIZAÇÃO DA TELA (AGORA BLINDADA) ---
     function updateUI() {
-      try {
-        document.getElementById('level').innerText = playerData.level || 1;
-        document.getElementById('xp').innerText = playerData.xp || 0;
+      document.getElementById('level').innerText = playerData.level || 1;
+      document.getElementById('xp').innerText = playerData.xp || 0;
+      
+      const safeCaptured = Array.isArray(playerData.captured) ? playerData.captured : [];
+      document.getElementById('captured-count').innerText = safeCaptured.length;
+      
+      const list = document.getElementById('cards-list');
+      list.innerHTML = '';
+      
+      safeCaptured.forEach((item, index) => {
+        if (!item) return;
+        const rarity = item.rarity || "Comum";
+        const rInfo = getRarityInfo(rarity);
         
-        const safeCaptured = Array.isArray(playerData.captured) ? playerData.captured : [];
-        document.getElementById('captured-count').innerText = safeCaptured.length;
+        list.innerHTML += `
+          <div class="card ${rInfo.css}">
+            <img src="${item.image || ''}" alt="Pet">
+            <div style="flex: 1;">
+              <strong>${item.name || 'Desconhecido'}</strong><br>
+              <small>${item.desc || ''}</small><br>
+              <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
+            </div>
+            <button class="btn-delete" onclick="deleteCard(${index})" title="Apagar">🗑️</button>
+          </div>
+        `;
+      });
+
+      const catContainer = document.getElementById('categories-container');
+      catContainer.innerHTML = '';
+
+      for (let catName in pediaCategories) {
+        let animals = pediaCategories[catName];
+        let gridHtml = '';
         
-        const list = document.getElementById('cards-list');
-        list.innerHTML = '';
-        safeCaptured.forEach((item, index) => {
-          if (!item) return; // Evita itens corrompidos no save
+        animals.forEach(target => {
+          const found = safeCaptured.find(c => c && c.name && c.name.toLowerCase().includes(target.name.toLowerCase()));
           
-          const rarity = item.rarity || "Comum";
-          const rInfo = getRarityInfo(rarity);
-          const itemName = item.name || "Desconhecido";
-          const itemDesc = item.desc || "";
-          
-          list.innerHTML += `
-            <div class="card ${rInfo.css}">
-              <img src="${item.image || ''}" alt="Pet">
-              <div style="flex: 1;">
-                <strong>${itemName}</strong><br>
-                <small>${itemDesc}</small><br>
+          if (found) {
+            const rarity = found.rarity || target.defaultRarity;
+            const rInfo = getRarityInfo(rarity);
+            gridHtml += `
+              <div class="species-item unlocked ${rInfo.css}">
+                <img src="${found.image || ''}" class="species-img" alt="${target.name}">
+                <div class="species-name">${found.name}</div>
                 <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
               </div>
-              <button class="btn-delete" onclick="deleteCard(${index})" title="Apagar">🗑️</button>
-            </div>
-          `;
+            `;
+          } else {
+            const rInfo = getRarityInfo(target.defaultRarity);
+            gridHtml += `
+              <div class="species-item">
+                <div class="species-silhouette">${target.icon}</div>
+                <div class="species-name">${target.name}</div>
+                <span class="rarity-tag">${rInfo.icon} ${target.defaultRarity}</span>
+              </div>
+            `;
+          }
         });
-
-        const catContainer = document.getElementById('categories-container');
-        catContainer.innerHTML = '';
-
-        for (let [catName, animals] of Object.entries(pediaCategories)) {
-          let gridHtml = '';
-          animals.forEach(target => {
-            // Checagem SUPER segura para evitar que nomes vazios quebrem o jogo
-            const found = safeCaptured.find(c => c && c.name && typeof c.name === 'string' && c.name.toLowerCase().includes(target.name.toLowerCase()));
-            
-            if (found) {
-              const rarity = found.rarity || target.defaultRarity;
-              const rInfo = getRarityInfo(rarity);
-              gridHtml += `
-                <div class="species-item unlocked ${rInfo.css}">
-                  <img src="${found.image || ''}" class="species-img" alt="${target.name}">
-                  <div class="species-name">${found.name}</div>
-                  <span class="rarity-tag">${rInfo.icon} ${rarity}</span>
-                </div>
-              `;
-            } else {
-              const rInfo = getRarityInfo(target.defaultRarity);
-              gridHtml += `
-                <div class="species-item">
-                  <div class="species-silhouette">${target.icon}</div>
-                  <div class="species-name">${target.name}</div>
-                  <span class="rarity-tag">${rInfo.icon} ${target.defaultRarity}</span>
-                </div>
-              `;
-            }
-          });
-          catContainer.innerHTML += `<div class="category-box"><div class="category-title">${catName}</div><div class="species-grid">${gridHtml}</div></div>`;
-        }
-      } catch (err) {
-        console.error("Erro ao atualizar interface: ", err);
+        
+        catContainer.innerHTML += `<div class="category-box"><div class="category-title">${catName}</div><div class="species-grid">${gridHtml}</div></div>`;
       }
     }
 
@@ -304,11 +329,12 @@
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 600;
-          const scaleSize = MAX_WIDTH / img.width;
+          const MAX_WIDTH = 500; // Reduzi levemente o tamanho pra poupar memória do celular
+          let scaleSize = MAX_WIDTH / img.width;
+          if (scaleSize > 1) scaleSize = 1;
           
-          canvas.width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
-          canvas.height = (img.width > MAX_WIDTH) ? (img.height * scaleSize) : img.height;
+          canvas.width = img.width * scaleSize;
+          canvas.height = img.height * scaleSize;
 
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -320,7 +346,7 @@
       reader.readAsDataURL(file);
     }
 
-    // --- FUNÇÃO DE ANÁLISE COM LISTAGEM AUTOMÁTICA DE MODELOS ---
+    // --- FUNÇÃO DE ANÁLISE COM O GOOGLE API ---
     async function analyzePet(base64Data, apiKeyUsed) {
       const pureBase64 = base64Data.split(',')[1];
       const prompt = `Identifique o animal desta foto e defina a raridade dele. Responda APENAS em JSON valido sem formatacao markdown: {"isAnimal": true, "name": "Nome do Animal", "desc": "Frase curta sobre ele.", "rarity": "Comum"}`;
@@ -346,12 +372,10 @@
               }
             }
           }
-        } catch(e) {
-          console.log("Erro ao buscar a lista de modelos:", e);
-        }
+        } catch(e) {}
 
         if (candidateModels.length === 0) {
-          candidateModels = ["models/gemini-1.5-flash", "models/gemini-1.5-pro", "models/gemini-pro-vision"];
+          candidateModels = ["models/gemini-1.5-flash", "models/gemini-1.5-pro"];
         }
 
         let success = false;
@@ -372,12 +396,7 @@
                 contents: [{
                   parts: [
                     { text: prompt },
-                    { 
-                      inlineData: { 
-                        mimeType: "image/jpeg", 
-                        data: pureBase64 
-                      } 
-                    }
+                    { inlineData: { mimeType: "image/jpeg", data: pureBase64 } }
                   ]
                 }]
               })
@@ -393,5 +412,26 @@
 
             if (data.candidates && data.candidates[0] && data.candidates[0].content) {
               const textResponse = data.candidates[0].content.parts[0].text;
-              const cleanJson = textResponse.replace(/```json|
-    
+              const cleanJson = textResponse.replace(/```json|```/g, '').trim();
+              result = JSON.parse(cleanJson);
+              success = true;
+              break;
+            }
+          } catch (e) {
+            lastError = e.message;
+          }
+        }
+
+        loadingLabel.style.display = 'none';
+        loadingLabel.innerText = "Analisando a foto... aguarde!";
+
+        if (!success || !result) {
+          alert("Resposta do Google:\n" + (lastError || "Erro desconhecido. Verifique sua franquia na API."));
+          return;
+        }
+
+        if (result.isAnimal) {
+          const rarity = result.rarity || "Comum";
+          const rInfo = getRarityInfo(rarity);
+
+        
