@@ -133,9 +133,7 @@
           playerData.captured = parsed.captured || []; 
         }
       }
-    } catch(e) {
-      console.log("Erro ao carregar save", e);
-    }
+    } catch(e) {}
 
     // --- DADOS DO JOGO ---
     const rarityMap = {
@@ -285,7 +283,6 @@
         return;
       }
 
-      document.getElementById('loading').style.display = 'block';
       const file = input.files[0];
       const reader = new FileReader();
 
@@ -309,82 +306,135 @@
       reader.readAsDataURL(file);
     }
 
-    // --- FUNÇÃO CORRIGIDA DE ANÁLISE ---
+    // --- FUNÇÃO DE ANÁLISE COM LISTAGEM AUTOMÁTICA DE MODELOS ---
     async function analyzePet(base64Data, apiKeyUsed) {
       const pureBase64 = base64Data.split(',')[1];
       const prompt = `Identifique o animal desta foto e defina a raridade dele. Responda APENAS em JSON valido sem formatacao markdown: {"isAnimal": true, "name": "Nome do Animal", "desc": "Frase curta sobre ele.", "rarity": "Comum"}`;
 
+      const loadingLabel = document.getElementById('loading');
+      loadingLabel.style.display = 'block';
+      loadingLabel.innerText = "Consultando Google API...";
+
       try {
-        document.getElementById('loading').style.display = 'block';
-        
-        // Versão direta e sem frescuras: usa o gemini-1.5-flash (O modelo oficial gratuito mais rápido)
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKeyUsed.trim()}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { 
-                  inlineData: { 
-                    mimeType: "image/jpeg", 
-                    data: pureBase64 
-                  } 
+        // 1. Busca os modelos disponíveis que funcionam para essa chave específica
+        let candidateModels = [];
+        try {
+          const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKeyUsed.trim()}`);
+          const modelsData = await modelsRes.json();
+
+          if (modelsData.models && Array.isArray(modelsData.models)) {
+            for (let m of modelsData.models) {
+              if (m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")) {
+                if (m.name.includes("flash")) {
+                  candidateModels.unshift(m.name); // Coloca os "flash" no início por serem mais rápidos
+                } else {
+                  candidateModels.push(m.name);
                 }
-              ]
-            }]
-          })
-        });
+              }
+            }
+          }
+        } catch(e) {
+          console.log("Erro ao buscar a lista de modelos:", e);
+        }
 
-        const data = await response.json();
-        document.getElementById('loading').style.display = 'none';
+        // Se a API não listou por algum motivo, tenta usar os padrões de segurança
+        if (candidateModels.length === 0) {
+          candidateModels = ["models/gemini-1.5-flash", "models/gemini-1.5-pro", "models/gemini-pro-vision"];
+        }
 
-        // Se a API retornar aquele erro de Quota novamente, ele avisa bonitinho.
-        if (data.error) {
-          alert("Erro da API do Google:\n" + data.error.message);
+        let success = false;
+        let result = null;
+        let lastError = "";
+
+        // 2. Tenta os modelos da lista um por um até um deles processar a foto
+        for (let modelName of candidateModels) {
+          try {
+            // Limpa o nome do modelo para aparecer bonitinho no carregamento
+            const modelShort = modelName.replace('models/', '');
+            loadingLabel.innerText = `Analisando com ${modelShort}...`;
+
+            // Garante que o caminho da API está correto (o ListModels já devolve 'models/...')
+            let fullModelPath = modelName.startsWith('models/') ? modelName : 'models/' + modelName;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${fullModelPath}:generateContent?key=${apiKeyUsed.trim()}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    { text: prompt },
+                    { 
+                      inlineData: { 
+                        mimeType: "image/jpeg", 
+                        data: pureBase64 
+                      } 
+                    }
+                  ]
+                }]
+              })
+            });
+
+            const data = await response.json();
+
+            // Se der erro de cota (429), ele para na hora e não adianta tentar os outros
+            if (data.error) {
+              lastError = data.error.message || JSON.stringify(data.error);
+              if (data.error.code === 429) {
+                break; 
+              }
+              continue; 
+            }
+
+            // Sucesso! Lê a resposta e sai do loop
+            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+              const textResponse = data.candidates[0].content.parts[0].text;
+              const cleanJson = textResponse.replace(/```json|```/g, '').trim();
+              result = JSON.parse(cleanJson);
+              success = true;
+              break;
+            }
+          } catch (e) {
+            lastError = e.message;
+          }
+        }
+
+        // Restaura a aparência original do loading para a próxima vez
+        loadingLabel.style.display = 'none';
+        loadingLabel.innerText = "Analisando a foto... aguarde!";
+
+        if (!success || !result) {
+          alert("Resposta do Google:\n" + (lastError || "Não foi possível analisar a foto. A cota pode estar excedida."));
           return;
         }
 
-        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-          const textResponse = data.candidates[0].content.parts[0].text;
-          const cleanJson = textResponse.replace(/```json|```/g, '').trim();
-          const result = JSON.parse(cleanJson);
+        // 3. Cadastra o animal no jogo!
+        if (result.isAnimal) {
+          const rarity = result.rarity || "Comum";
+          const rInfo = getRarityInfo(rarity);
 
-          if (result.isAnimal) {
-            const rarity = result.rarity || "Comum";
-            const rInfo = getRarityInfo(rarity);
+          if (!Array.isArray(playerData.captured)) playerData.captured = [];
+          
+          playerData.captured.unshift({
+            name: result.name,
+            desc: result.desc,
+            rarity: rarity,
+            image: base64Data
+          });
 
-            if (!Array.isArray(playerData.captured)) playerData.captured = [];
-            
-            playerData.captured.unshift({
-              name: result.name,
-              desc: result.desc,
-              rarity: rarity,
-              image: base64Data
-            });
+          let oldLevel = playerData.level;
+          recalculateStats();
+          saveGame();
 
-            let oldLevel = playerData.level;
-            recalculateStats();
-            saveGame();
-
-            let levelUpMsg = "";
-            if (playerData.level > oldLevel) {
-              levelUpMsg = `\n🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`;
-            }
-
-            alert(`✨ Gotcha! Você capturou um ${result.name}!\n\nRaridade: ${rInfo.icon} ${rarity}\nXP Ganho: +${rInfo.xp}${levelUpMsg}`);
-          } else {
-            alert("Ops! A IA não identificou um animal nesta foto.");
+          let levelUpMsg = "";
+          if (playerData.level > oldLevel) {
+            levelUpMsg = `\n🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`;
           }
+
+          alert(`✨ Gotcha! Você capturou um ${result.name}!\n\nRaridade: ${rInfo.icon} ${rarity}\nXP Ganho: +${rInfo.xp}${levelUpMsg}`);
         } else {
-          alert("O Google não conseguiu analisar a imagem desta vez.");
+          alert("Ops! A IA não identificou um animal nesta foto.");
         }
 
       } catch (err) {
-        document.getElementById('loading').style.display = 'none';
-        alert("Erro ao processar: " + err.message);
-      }
-    }
-  </script>
-</body>
-</html>
+        loadingLabel.style.display = 'none';
+        loadingLabel.inner
