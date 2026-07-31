@@ -434,4 +434,34 @@
           const rarity = result.rarity || "Comum";
           const rInfo = getRarityInfo(rarity);
 
-        
+        if (!Array.isArray(playerData.captured)) playerData.captured = [];
+          
+          playerData.captured.unshift({
+            name: result.name || "Desconhecido",
+            desc: result.desc || "",
+            rarity: rarity,
+            image: base64Data
+          });
+
+          let oldLevel = playerData.level;
+          recalculateStats();
+          saveGame();
+
+          let levelUpMsg = "";
+          if (playerData.level > oldLevel) {
+            levelUpMsg = `\n🎉 Parabéns ${playerData.nick}! Você subiu para o Nível ${playerData.level}!`;
+          }
+
+          alert(`✨ Gotcha! Você capturou um ${result.name}!\n\nRaridade: ${rInfo.icon} ${rarity}\nXP Ganho: +${rInfo.xp}${levelUpMsg}`);
+        } else {
+          alert("Ops! A IA não identificou um animal nesta foto.");
+        }
+
+      } catch (err) {
+        loadingLabel.style.display = 'none';
+        alert("Erro no navegador: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
